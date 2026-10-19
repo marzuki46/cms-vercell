@@ -130,77 +130,77 @@ export default function ArticleEditor({ id }: { id: string }) {
       </div>
 
       {error ? (
-        <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-warn">
+        <div className="bg-[#fcf0f1] border-l-4 border-[#d63638] p-3 text-sm text-[#3c434a]">
           {error}
-        </p>
+        </div>
       ) : null}
       {notice ? (
-        <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-good">
+        <div className="bg-[#edfaef] border-l-4 border-[#008a20] p-3 text-sm text-[#008a20]">
           {notice}
-        </p>
+        </div>
       ) : null}
 
-      <div className="grid gap-4 rounded-lg border border-line p-4">
+      <div className="grid gap-4 rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">Judul</span>
+          <span className="font-bold text-[#1d2327]">Judul Pos</span>
           <input
             value={article.title}
             onChange={(e) => update("title", e.target.value)}
-            className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted">SEO title</span>
+            <span className="font-bold text-[#1d2327]">SEO Title Tag</span>
             <input
               value={article.seo_title ?? ""}
               onChange={(e) => update("seo_title", e.target.value)}
-              className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+              className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted">Penulis</span>
+            <span className="font-bold text-[#1d2327]">Penulis</span>
             <input
               value={article.author ?? ""}
               onChange={(e) => update("author", e.target.value)}
-              className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+              className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
             />
           </label>
         </div>
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">SEO description</span>
+          <span className="font-bold text-[#1d2327]">Meta Description (SEO)</span>
           <textarea
             rows={2}
             value={article.seo_description ?? ""}
             onChange={(e) => update("seo_description", e.target.value)}
-            className="resize-y rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            className="resize-y rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">Excerpt</span>
+          <span className="font-bold text-[#1d2327]">Ringkasan (Excerpt)</span>
           <textarea
             rows={2}
             value={article.excerpt ?? ""}
             onChange={(e) => update("excerpt", e.target.value)}
-            className="resize-y rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            className="resize-y rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">Konten (Markdown)</span>
+          <span className="font-bold text-[#1d2327]">Konten (Markdown)</span>
           <textarea
             rows={24}
             value={article.content_md ?? ""}
             onChange={(e) => update("content_md", e.target.value)}
             spellCheck={false}
-            className="resize-y rounded-md border border-line bg-surface px-3 py-2 font-mono text-[0.85rem] leading-relaxed outline-none focus:border-accent"
+            className="resize-y rounded border border-[#8c8f94] bg-white text-[#1d2327] p-3 font-mono text-[0.875rem] leading-relaxed outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1] shadow-sm"
           />
         </label>
         <div className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">Pratinjau</span>
-          <div className="max-h-[36rem] overflow-auto rounded-md border border-line p-4">
+          <span className="font-bold text-[#1d2327]">Pratinjau Langsung</span>
+          <div className="max-h-[36rem] overflow-auto rounded border border-[#c3c4c7] bg-white p-4 shadow-sm">
             <Markdown content={article.content_md ?? ""} />
           </div>
         </div>

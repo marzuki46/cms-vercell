@@ -4,12 +4,12 @@
   --background: #ffffff;
   --foreground: #0d0f12;
   --muted: #5b6470;
-  --line: #e4e7ec;
-  --surface: #f7f8fa;
-  --accent: #1a56db;
+  --line: #c3c4c7;
+  --surface: #ffffff;
+  --accent: #2271b1;
   --accent-fg: #ffffff;
-  --good: #0f7b45;
-  --warn: #b54708;
+  --good: #008a20;
+  --warn: #d63638;
 }
 
 @theme inline {
@@ -26,18 +26,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0b0d;
-    --foreground: #eceef1;
-    --muted: #9aa4b2;
-    --line: #23262b;
-    --surface: #14161a;
-    --accent: #6b8cff;
-    --accent-fg: #08090b;
-    --good: #3ddc97;
-    --warn: #f5a524;
-  }
+/* Pastikan input form, textarea, select selalu berlatar belakang putih bersih dan teks gelap pekat */
+input, textarea, select {
+  background-color: #ffffff !important;
+  color: #1d2327 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #8c8f94 !important;
 }
 
 * {

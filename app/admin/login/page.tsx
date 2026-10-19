@@ -76,14 +76,19 @@ function LoginForm() {
 
 export default function AdminLoginPage() {
   return (
-    <div className="mx-auto w-full max-w-sm px-5 py-16">
-      <h1 className="mb-2 text-2xl font-bold tracking-tight">Masuk admin</h1>
-      <p className="mb-8 text-sm text-muted">
-        Gunakan akun Supabase Auth yang terdaftar.
-      </p>
-      <Suspense>
-        <LoginForm />
-      </Suspense>
+    <div className="min-h-screen bg-[#f0f0f1] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white p-6 sm:p-8 rounded-lg border border-[#c3c4c7] shadow-sm">
+        <div className="text-center mb-6">
+          <div className="text-3xl mb-2">⚡</div>
+          <h1 className="text-xl font-bold text-[#1d2327]">Masuk ke Admin</h1>
+          <p className="text-xs text-[#646970] mt-1">
+            Gunakan akun Supabase Auth Anda.
+          </p>
+        </div>
+        <Suspense>
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   );
 }

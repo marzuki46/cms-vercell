@@ -120,34 +120,35 @@ export default function TopicsAdmin() {
     <div className="flex flex-col gap-6">
       <form
         onSubmit={addManual}
-        className="flex flex-wrap items-end gap-3 rounded-lg border border-line p-4"
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-[#c3c4c7] bg-white p-4 shadow-sm"
       >
         <label className="flex min-w-[16rem] flex-1 flex-col gap-1.5 text-sm">
-          <span className="text-muted">Judul topik manual</span>
+          <span className="font-bold text-[#1d2327]">Judul topik manual</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="mis. Panduan lengkap optimasi Core Web Vitals"
-            className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">Kata kunci utama</span>
+          <span className="font-bold text-[#1d2327]">Kata kunci utama</span>
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            className="w-48 rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            placeholder="mis. core web vitals"
+            className="w-48 rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
         <button
           type="submit"
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium hover:border-accent hover:text-accent"
+          className="rounded bg-[#2271b1] text-white px-4 py-2 text-sm font-semibold hover:bg-[#135e96] transition shadow-sm"
         >
-          Tambah topik
+          ➕ Tambah Topik
         </button>
       </form>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 border-b border-[#c3c4c7] pb-2 text-xs">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -156,10 +157,10 @@ export default function TopicsAdmin() {
               setLoading(true);
               setTab(t.value);
             }}
-            className={`rounded-full border px-3 py-1 text-sm ${
+            className={`px-3 py-1.5 rounded transition ${
               tab === t.value
-                ? "border-accent bg-accent text-accent-fg"
-                : "border-line text-muted hover:border-accent hover:text-accent"
+                ? "font-bold text-[#2271b1] bg-white border border-[#c3c4c7] shadow-xs"
+                : "text-[#50575e] hover:text-[#2271b1]"
             }`}
           >
             {t.label}
@@ -168,19 +169,21 @@ export default function TopicsAdmin() {
       </div>
 
       {error ? (
-        <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-warn">
+        <div className="bg-[#fcf0f1] border-l-4 border-[#d63638] p-3 text-sm text-[#3c434a]">
           {error}
-        </p>
+        </div>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-muted">Memuat…</p>
+        <p className="text-sm text-[#646970]">Memuat topik…</p>
       ) : topics.length === 0 ? (
-        <p className="text-sm text-muted">Tidak ada topik pada filter ini.</p>
+        <div className="p-8 text-center text-sm text-[#646970] bg-white border border-[#c3c4c7] rounded shadow-sm">
+          Tidak ada topik pada filter ini.
+        </div>
       ) : (
-        <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
+        <ul className="flex flex-col divide-y divide-[#dcdcde] rounded-lg border border-[#c3c4c7] bg-white shadow-sm">
           {topics.map((t) => (
-            <li key={t.id} className="flex flex-col gap-2 px-4 py-3">
+            <li key={t.id} className="flex flex-col gap-2 px-4 py-3 hover:bg-[#fbfbfb]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-medium">{t.title}</p>

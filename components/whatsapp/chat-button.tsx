@@ -213,41 +213,42 @@ export default function WhatsAppChatButton({
                   placeholder="0812 3456 7890"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+                  className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 text-sm">
-                <span className="text-muted">Nama (opsional)</span>
+                <span className="font-semibold text-[#1d2327]">Nama (opsional)</span>
                 <input
                   type="text"
                   maxLength={80}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+                  placeholder="Nama Anda"
+                  className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
                 />
               </label>
 
               <label className="flex flex-col gap-1.5 text-sm">
-                <span className="text-muted">Pesan (opsional)</span>
+                <span className="font-semibold text-[#1d2327]">Pesan (opsional)</span>
                 <textarea
                   rows={3}
                   maxLength={500}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="Saya ingin tahu lebih lanjut tentang…"
-                  className="resize-y rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+                  className="resize-y rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
                 />
               </label>
 
               {error ? (
-                <p
+                <div
                   id="whatsapp-error"
                   role="alert"
-                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-warn"
+                  className="bg-[#fcf0f1] border-l-4 border-[#d63638] p-3 text-sm text-[#3c434a]"
                 >
                   {error}
-                </p>
+                </div>
               ) : null}
 
               <div className="flex items-center gap-3">

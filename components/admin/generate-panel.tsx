@@ -56,47 +56,47 @@ export default function GeneratePanel() {
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-muted">Jumlah ide</span>
+          <span className="font-bold text-[#1d2327]">Jumlah ide</span>
           <input
             type="number"
             min={1}
             max={20}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
-            className="w-24 rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            className="w-24 rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
         <button
           type="button"
           onClick={() => run("brainstorm")}
           disabled={busy !== null}
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium hover:border-accent hover:text-accent disabled:opacity-60"
+          className="rounded border border-[#2271b1] bg-white text-[#2271b1] px-4 py-2 text-sm font-semibold hover:bg-[#2271b1] hover:text-white transition disabled:opacity-60 shadow-xs"
         >
-          {busy === "brainstorm" ? "Berjalan…" : "Brainstorm topik"}
+          {busy === "brainstorm" ? "Mencari Ide…" : "💡 Brainstorm Topik"}
         </button>
         <button
           type="button"
           onClick={() => run("generate")}
           disabled={busy !== null}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90 disabled:opacity-60"
+          className="rounded bg-[#008a20] px-4 py-2 text-sm font-semibold text-white hover:bg-[#007017] transition disabled:opacity-60 shadow-xs"
         >
-          {busy === "generate" ? "Menulis artikel…" : "Generate 1 artikel"}
+          {busy === "generate" ? "Menulis Artikel…" : "⚡ Tulis 1 Artikel Langsung"}
         </button>
       </div>
 
       {error ? (
-        <p className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-sm text-warn">
+        <div className="mt-4 bg-[#fcf0f1] border-l-4 border-[#d63638] p-3 text-sm text-[#3c434a]">
           {error}
-        </p>
+        </div>
       ) : null}
 
       {result?.kind === "brainstorm" ? (
-        <div className="mt-4 rounded-md border border-line bg-surface p-3 text-sm">
-          <p className="font-medium text-good">
-            {result.created} topik baru, {result.skipped} duplikat dilewati.
+        <div className="mt-4 bg-[#edfaef] border-l-4 border-[#008a20] p-3 text-sm text-[#1d2327]">
+          <p className="font-bold text-[#008a20]">
+            ✓ Berhasil: {result.created} topik baru, {result.skipped} duplikat dilewati.
           </p>
           {result.sample.length ? (
-            <ul className="mt-2 list-disc pl-5 text-muted">
+            <ul className="mt-2 list-disc pl-5 text-[#50575e]">
               {result.sample.slice(0, 8).map((t) => (
                 <li key={t}>{t}</li>
               ))}
@@ -106,14 +106,14 @@ export default function GeneratePanel() {
       ) : null}
 
       {result?.kind === "generate" ? (
-        <div className="mt-4 rounded-md border border-line bg-surface p-3 text-sm">
-          <p className="font-medium text-good">
-            Artikel dibuat: {result.title} ({result.wordCount} kata,{" "}
+        <div className="mt-4 bg-[#edfaef] border-l-4 border-[#008a20] p-3 text-sm text-[#1d2327]">
+          <p className="font-bold text-[#008a20]">
+            ✓ Artikel dibuat: {result.title} ({result.wordCount} kata,{" "}
             {result.status}).
           </p>
           <a
             href={`/admin/articles`}
-            className="mt-1 inline-block text-accent hover:underline"
+            className="mt-1 inline-block text-[#2271b1] font-semibold hover:underline"
           >
             Buka daftar artikel →
           </a>
