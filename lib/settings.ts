@@ -3,9 +3,10 @@ import { hasServiceRole } from "@/lib/env";
 import type { Settings } from "@/types/db";
 
 export const DEFAULT_SETTINGS: Omit<Settings, "id" | "updated_at"> = {
-  site_name: "Content Autopilot",
+  site_name: "Portal Konten SEO",
   site_url: null,
   language: "id",
+  theme_template: "modern",
   ninerouter_url: null,
   ninerouter_key: null,
   model_writer: "openai/gpt-4o",

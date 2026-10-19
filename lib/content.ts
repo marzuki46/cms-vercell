@@ -11,6 +11,7 @@ export interface SiteSettings {
   site_name: string;
   site_url: string | null;
   language: string;
+  theme_template: "modern" | "editorial" | "minimal";
 }
 
 const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
@@ -18,27 +19,28 @@ const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
 export const getSiteSettings = unstable_cache(
   async (): Promise<SiteSettings> => {
     if (!hasServiceRole() || isBuildTime()) {
-      return { site_name: "Content Autopilot", site_url: null, language: "id" };
+      return { site_name: "Portal Konten SEO", site_url: null, language: "id", theme_template: "modern" };
     }
     try {
       const sb = createAdminClient();
       const { data } = await sb
         .from("settings")
-        .select("site_name,site_url,language")
+        .select("site_name,site_url,language,theme_template")
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
       if (data) {
         return {
-          site_name: data.site_name ?? "Content Autopilot",
+          site_name: data.site_name ?? "Portal Konten SEO",
           site_url: data.site_url ?? null,
           language: data.language ?? "id",
+          theme_template: (data.theme_template as "modern" | "editorial" | "minimal") || "modern",
         };
       }
     } catch {
       // ignore and fall back to defaults
     }
-    return { site_name: "Content Autopilot", site_url: null, language: "id" };
+    return { site_name: "Portal Konten SEO", site_url: null, language: "id", theme_template: "modern" };
   },
   ["site-settings"],
   { revalidate: 600, tags: ["settings"] },

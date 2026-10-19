@@ -131,9 +131,9 @@ export default async function RootLayout({
             <div className="flex flex-col gap-2">
               <span className="text-base font-bold text-foreground">{site.site_name}</span>
               <p className="text-xs text-muted max-w-sm">
-                Platform publikasi konten SEO otomatis dengan model CMS modern bergaya WordPress ringan.
+                Portal informasi dan publikasi artikel resmi {site.site_name}.
               </p>
-              <p className="text-xs text-muted mt-2">© {new Date().getFullYear()} {site.site_name}. Hak Cipta Dilindungi.</p>
+              <p className="text-xs text-muted mt-2">© {new Date().getFullYear()} {site.site_name}. All rights reserved.</p>
             </div>
             
             <div className="flex flex-wrap gap-6 text-sm text-muted">

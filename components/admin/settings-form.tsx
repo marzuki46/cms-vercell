@@ -228,12 +228,27 @@ export default function SettingsForm() {
             />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-[#50575e] font-semibold">Bahasa</span>
-            <input
+            <span className="text-[#50575e] font-semibold">Bahasa Utama Konten</span>
+            <select
               value={form.language}
               onChange={(e) => set("language", e.target.value)}
               className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
-            />
+            >
+              <option value="id">Bahasa Indonesia (id)</option>
+              <option value="en">English (en)</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-[#50575e] font-semibold">Template Tampilan Publik</span>
+            <select
+              value={form.theme_template ?? "modern"}
+              onChange={(e) => set("theme_template" as keyof Form, e.target.value as unknown as Form[keyof Form])}
+              className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
+            >
+              <option value="modern">Modern Professional (Default SaaS)</option>
+              <option value="editorial">Editorial Warm (Magazine / Medium Style)</option>
+              <option value="minimal">Minimal Clean (Ultra Fast Monospace / Sharp)</option>
+            </select>
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
             <span className="text-[#50575e] font-semibold">Penulis default</span>

@@ -9,6 +9,7 @@ export interface Settings {
   site_name: string | null;
   site_url: string | null;
   language: string;
+  theme_template?: "modern" | "editorial" | "minimal";
   ninerouter_url: string | null;
   ninerouter_key: string | null;
   model_writer: string;
