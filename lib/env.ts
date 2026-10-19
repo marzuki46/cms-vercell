@@ -7,6 +7,7 @@ export const env = {
     "",
   ),
   cronSecret: process.env.CRON_SECRET ?? "",
+  googleSiteVerification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? "",
   adminEmails: (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())

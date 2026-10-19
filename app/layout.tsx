@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { getSiteSettings } from "@/lib/content";
+import WhatsAppChatButton from "@/components/whatsapp/chat-button";
+import { getContactSettings, getSiteSettings } from "@/lib/content";
 import { env } from "@/lib/env";
 import "./globals.css";
 
@@ -63,6 +64,9 @@ export async function generateMetadata(): Promise<Metadata> {
         "max-snippet": -1,
       },
     },
+    verification: {
+      google: env.googleSiteVerification || undefined,
+    },
   };
 }
 
@@ -71,7 +75,10 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const site = await getSiteSettings();
+  const [site, contact] = await Promise.all([
+    getSiteSettings(),
+    getContactSettings(),
+  ]);
 
   return (
     <html lang="id" className={`${geistSans.variable} ${geistMono.variable}`}>
@@ -111,6 +118,13 @@ export default async function RootLayout({
         <main id="main" className="flex-1">
           {children}
         </main>
+
+        {/* Floating WhatsApp chat widget across all public pages */}
+        <WhatsAppChatButton
+          variant="floating"
+          number={contact.whatsapp_number}
+          message={contact.whatsapp_message}
+        />
 
         <footer className="border-t border-line bg-surface/50 mt-16">
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-center sm:justify-between">
