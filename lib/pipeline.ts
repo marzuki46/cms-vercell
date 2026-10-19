@@ -1,5 +1,5 @@
-import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidateArticles } from "@/lib/revalidate";
 import { getSettings } from "@/lib/settings";
 import { getOpenAI, chat, cosineSimilarity, type NineRouterConfig } from "@/lib/ai/client";
 import {
@@ -77,13 +77,7 @@ async function tryEmbed(
 }
 
 function publishPaths(slug: string) {
-  for (const p of ["/", "/blog", "/sitemap.xml", "/rss.xml", `/blog/${slug}`]) {
-    try {
-      revalidatePath(p);
-    } catch {
-      // ignore when called outside a request context
-    }
-  }
+  revalidateArticles(slug);
 }
 
 // ---------------------------------------------------------------------------

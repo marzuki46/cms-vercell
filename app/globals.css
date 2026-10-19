@@ -104,6 +104,41 @@ body {
   margin-top: 0.4em;
 }
 
+.article-body h2,
+.article-body h3,
+.article-body h4 {
+  scroll-margin-top: 6rem;
+}
+
+.article-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.article-body .table-scroll {
+  overflow-x: auto;
+  margin-top: 1.4em;
+}
+
+.article-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.article-body th,
+.article-body td {
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+}
+
+.article-body th {
+  background: var(--surface);
+  font-weight: 650;
+}
+
 .article-body blockquote {
   border-left: 3px solid var(--accent);
   padding: 0.2em 0 0.2em 1em;

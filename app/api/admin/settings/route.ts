@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdminApi, jsonError } from "@/lib/api";
+import { revalidateSettings } from "@/lib/revalidate";
 import { getSettings, saveSettings } from "@/lib/settings";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
 import { missingColumns, repairSql } from "@/lib/settings-schema";
@@ -58,12 +58,9 @@ export async function PUT(request: Request) {
   try {
     const saved = await saveSettings(patch);
 
-    // Public pages read settings through a tagged cache; flush it immediately so
-    // the new site name / language / template appear without waiting for ISR.
-    revalidateTag("settings", "max");
-    for (const path of ["/", "/blog", "/about", "/contact", "/api/og"]) {
-      revalidatePath(path);
-    }
+    // Flush the tagged data cache + every public route so the new site name,
+    // language and template appear immediately instead of after the ISR window.
+    revalidateSettings();
 
     const key = saved.ninerouter_key;
     return NextResponse.json({

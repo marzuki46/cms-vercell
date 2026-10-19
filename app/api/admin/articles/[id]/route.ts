@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi, jsonError } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePath } from "next/cache";
+import { revalidateArticles } from "@/lib/revalidate";
 import { countWords, readingTimeMinutes } from "@/lib/text";
 import type { ArticleStatus } from "@/types/db";
 
@@ -46,13 +46,7 @@ interface PatchBody {
 }
 
 function revalidateArticle(slug: string) {
-  for (const p of ["/", "/blog", "/sitemap.xml", "/rss.xml", `/blog/${slug}`]) {
-    try {
-      revalidatePath(p);
-    } catch {
-      // ignore outside request context
-    }
-  }
+  revalidateArticles(slug);
 }
 
 export async function PATCH(

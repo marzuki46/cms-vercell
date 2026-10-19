@@ -3,6 +3,7 @@ import { requireAdminApi, jsonError } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toSlug, withSuffix } from "@/lib/slug";
 import { countWords, readingTimeMinutes } from "@/lib/text";
+import { revalidateArticles } from "@/lib/revalidate";
 import type { ArticleStatus } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -108,5 +109,8 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return jsonError(error.message, 500);
+
+  if (status === "published") revalidateArticles(slug);
+
   return NextResponse.json({ article: created }, { status: 201 });
 }

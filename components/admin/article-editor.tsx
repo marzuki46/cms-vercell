@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Markdown from "@/components/markdown";
+import SeoChecklist from "@/components/admin/seo-checklist";
 import { apiGet, apiSend } from "@/lib/client-api";
 import type { Article } from "@/types/db";
 
@@ -60,7 +61,13 @@ export default function ArticleEditor({ id }: { id: string }) {
         body,
       );
       setArticle(res.article);
-      setNotice(status ? `Disimpan & status: ${status}.` : "Perubahan disimpan.");
+      setNotice(
+        status === "published"
+          ? "✓ Dipublikasikan. Artikel sudah langsung tampil di halaman depan."
+          : status
+            ? `Disimpan & status: ${status}.`
+            : "Perubahan disimpan.",
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -187,23 +194,30 @@ export default function ArticleEditor({ id }: { id: string }) {
         </label>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold text-[#1d2327]">Konten (Markdown)</span>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="flex flex-col gap-4">
           <textarea
             rows={24}
             value={article.content_md ?? ""}
             onChange={(e) => update("content_md", e.target.value)}
             spellCheck={false}
+            aria-label="Konten artikel (Markdown)"
             className="resize-y rounded border border-[#8c8f94] bg-white text-[#1d2327] p-3 font-mono text-[0.875rem] leading-relaxed outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1] shadow-sm"
           />
-        </label>
-        <div className="flex flex-col gap-1.5 text-sm">
-          <span className="font-bold text-[#1d2327]">Pratinjau Langsung</span>
-          <div className="max-h-[36rem] overflow-auto rounded border border-[#c3c4c7] bg-white p-4 shadow-sm">
-            <Markdown content={article.content_md ?? ""} />
+          <div className="flex flex-col gap-1.5 text-sm">
+            <span className="font-bold text-[#1d2327]">Pratinjau Langsung</span>
+            <div className="max-h-[32rem] overflow-auto rounded border border-[#c3c4c7] bg-white p-4 shadow-sm">
+              <Markdown content={article.content_md ?? ""} />
+            </div>
           </div>
         </div>
+        <SeoChecklist
+          title={article.title}
+          seoTitle={article.seo_title}
+          seoDescription={article.seo_description}
+          excerpt={article.excerpt}
+          content={article.content_md ?? ""}
+        />
       </div>
     </div>
   );

@@ -1,11 +1,18 @@
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 import GeneratePanel from "@/components/admin/generate-panel";
+import AutopilotPanel from "@/components/admin/autopilot-panel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole } from "@/lib/env";
+import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/components/article-card";
 import type { ArticleStatus, TopicStatus } from "@/types/db";
 
 export const dynamic = "force-dynamic";
+
+function refresh() {
+  revalidatePath("/admin");
+}
 
 const ARTICLE_STATUSES: ArticleStatus[] = [
   "published",
@@ -39,21 +46,21 @@ async function loadData() {
     }),
   );
 
-  const [{ data: jobs }, { data: articles }, { count: totalLeads }] = await Promise.all([
-    sb
-      .from("generation_jobs")
-      .select("id,type,status,model,error,started_at,finished_at")
-      .order("started_at", { ascending: false })
-      .limit(6),
-    sb
-      .from("articles")
-      .select("id,title,slug,status,created_at,author,word_count")
-      .order("created_at", { ascending: false })
-      .limit(6),
-    sb
-      .from("whatsapp_leads")
-      .select("id", { count: "exact", head: true }),
-  ]);
+  const [{ data: jobs }, { data: articles }, { count: totalLeads }, settings] =
+    await Promise.all([
+      sb
+        .from("generation_jobs")
+        .select("id,type,status,model,error,started_at,finished_at")
+        .order("started_at", { ascending: false })
+        .limit(6),
+      sb
+        .from("articles")
+        .select("id,title,slug,status,created_at,author,word_count")
+        .order("created_at", { ascending: false })
+        .limit(6),
+      sb.from("whatsapp_leads").select("id", { count: "exact", head: true }),
+      getSettings(),
+    ]);
 
   return {
     articleCounts: Object.fromEntries(articleCounts) as Record<string, number>,
@@ -61,6 +68,9 @@ async function loadData() {
     jobs: jobs ?? [],
     articles: articles ?? [],
     totalLeads: totalLeads ?? 0,
+    siteName: settings.site_name ?? "Situs Anda",
+    postsPerRun: Math.min(Math.max(settings.posts_per_run ?? 3, 1), 10),
+    aiReady: Boolean(settings.ninerouter_url),
   };
 }
 
@@ -78,7 +88,18 @@ export default async function AdminDashboard() {
     );
   }
 
-  const { articleCounts, topicCounts, jobs, articles, totalLeads } = data;
+  const {
+    articleCounts,
+    topicCounts,
+    jobs,
+    articles,
+    totalLeads,
+    siteName,
+    postsPerRun,
+    aiReady,
+  } = data;
+
+  const draftCount = articleCounts.draft ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -86,10 +107,12 @@ export default async function AdminDashboard() {
       <div className="bg-white border border-[#c3c4c7] p-6 rounded-lg shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1d2327]">
-            Dashboard Konten & SEO
+            Dashboard Konten &amp; SEO
           </h1>
           <p className="text-sm text-[#646970] mt-1">
-            Kelola pos blog, generate artikel SEO otomatis dengan AI, dan pantau prospek WhatsApp Anda.
+            Kelola pos blog, generate artikel SEO otomatis dengan AI, dan pantau
+            prospek WhatsApp untuk{" "}
+            <strong className="text-[#1d2327]">{siteName}</strong>.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -107,6 +130,22 @@ export default async function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Action queue: what to do next */}
+      {draftCount > 0 ? (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-[#dba617] bg-[#fcf9e8] px-4 py-3">
+          <p className="text-sm font-semibold text-[#7a5c00]">
+            📋 {draftCount} artikel menunggu review. Publish agar langsung tampil di
+            halaman depan.
+          </p>
+          <Link
+            href="/admin/articles?status=draft"
+            className="shrink-0 rounded bg-[#996800] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#7a5c00]"
+          >
+            Review &amp; Publish →
+          </Link>
+        </div>
+      ) : null}
 
       {/* WP-Style Stats Grid ("At a Glance") */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -138,7 +177,7 @@ export default async function AdminDashboard() {
 
       {/* AI Content Engine Widget */}
       <div className="bg-white border border-[#c3c4c7] rounded-lg shadow-sm overflow-hidden">
-        <div className="bg-[#f6f7f7] px-4 py-3 border-b border-[#dcdcde] flex items-center justify-between">
+        <div className="bg-[#f6f7f7] px-4 py-3 border-b border-[#dcdcde] flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold text-[#1d2327] flex items-center gap-1.5">
             <span>⚡</span>
             <span>Mesin Konten AI (9Router)</span>
@@ -147,8 +186,20 @@ export default async function AdminDashboard() {
             Ubah Model & Prompt →
           </Link>
         </div>
-        <div className="p-4">
-          <GeneratePanel />
+        <div className="p-4 flex flex-col gap-5">
+          <AutopilotPanel
+            count={postsPerRun}
+            disabled={!aiReady}
+            onDone={refresh}
+          />
+          <details className="border-t border-[#dcdcde] pt-4">
+            <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-[#50575e]">
+              Mode manual (satu per satu)
+            </summary>
+            <div className="mt-3">
+              <GeneratePanel />
+            </div>
+          </details>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Markdown from "@/components/markdown";
 import JsonLd from "@/components/jsonld";
 import ArticleCard, { formatDate } from "@/components/article-card";
+import TableOfContents from "@/components/table-of-contents";
 import WhatsAppChatButton from "@/components/whatsapp/chat-button";
 import {
   getArticleBySlug,
@@ -12,6 +13,7 @@ import {
   getContactSettings,
   getSiteSettings,
 } from "@/lib/content";
+import { extractToc, plainText } from "@/lib/article-seo";
 import { env } from "@/lib/env";
 
 export const revalidate = 300;
@@ -37,32 +39,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   ]);
   if (!article) return { title: "Artikel tidak ditemukan" };
 
-  const url = `${baseUrl()}/blog/${article.slug}`;
+  const base = baseUrl();
+  const url = `${base}/blog/${article.slug}`;
+  const fallbackDescription = plainText(article.content_md ?? "", 155);
   const description =
-    article.seo_description ||
-    article.excerpt ||
-    `Artikel dari ${site.site_name}.`;
+    article.seo_description || article.excerpt || fallbackDescription;
+
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(
+    (article.seo_title || article.title).slice(0, 110),
+  )}&excerpt=${encodeURIComponent((article.excerpt ?? "").slice(0, 160))}`;
 
   return {
     title: article.seo_title || article.title,
     description,
     keywords: article.keywords ?? undefined,
+    authors: article.author ? [{ name: article.author }] : undefined,
     alternates: { canonical: url },
     openGraph: {
       type: "article",
       title: article.seo_title || article.title,
       description,
       url,
+      siteName: site.site_name,
+      locale: site.language === "en" ? "en_US" : "id_ID",
       publishedTime: article.published_at ?? undefined,
       modifiedTime: article.updated_at,
       authors: article.author ? [article.author] : undefined,
       tags: article.keywords ?? undefined,
-      siteName: site.site_name,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: article.title }],
     },
     twitter: {
       card: "summary_large_image",
       title: article.seo_title || article.title,
       description,
+      images: [ogImage],
     },
   };
 }
@@ -75,13 +85,23 @@ export default async function ArticlePage({ params }: Props) {
   ]);
   if (!article) notFound();
 
-  const url = `${baseUrl()}/blog/${article.slug}`;
+  const base = baseUrl();
+  const url = `${base}/blog/${article.slug}`;
+  const isEn = site.language === "en";
   const description =
-    article.seo_description || article.excerpt || undefined;
+    article.seo_description ||
+    article.excerpt ||
+    plainText(article.content_md ?? "", 155);
+
   const [related, contact] = await Promise.all([
     getRelatedArticles(article.slug, 3),
     getContactSettings(),
   ]);
+
+  const toc = extractToc(article.content_md ?? "");
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(
+    (article.seo_title || article.title).slice(0, 110),
+  )}&excerpt=${encodeURIComponent((article.excerpt ?? "").slice(0, 160))}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -89,48 +109,86 @@ export default async function ArticlePage({ params }: Props) {
       {
         "@type": "BlogPosting",
         "@id": `${url}#article`,
-        mainEntityOfPage: { "@type": "WebPage", "@id": url },
-        headline: article.title,
+        mainEntityOfPage: {
+          "@type": "WebPage",
+          "@id": url,
+          inLanguage: site.language === "en" ? "en" : "id-ID",
+        },
+        url,
+        headline: (article.seo_title || article.title).slice(0, 110),
+        alternativeHeadline: article.title,
         description,
+        image: [ogImage],
         datePublished: article.published_at,
         dateModified: article.updated_at,
-        inLanguage: site.language || "id",
-        author: article.author
-          ? { "@type": "Person", name: article.author }
-          : undefined,
-        publisher: { "@type": "Organization", name: site.site_name },
+        inLanguage: site.language === "en" ? "en" : "id-ID",
+        articleSection: article.keywords?.[0] ?? undefined,
         keywords: article.keywords?.join(", "),
         wordCount: article.word_count ?? undefined,
         timeRequired: article.reading_time_minutes
           ? `PT${article.reading_time_minutes}M`
           : undefined,
+        author: article.author
+          ? {
+              "@type": "Person",
+              name: article.author,
+              url: `${base}/blog`,
+            }
+          : { "@type": "Organization", name: site.site_name },
+        publisher: {
+          "@type": "Organization",
+          name: site.site_name,
+          logo: { "@type": "ImageObject", url: `${base}/api/og` },
+        },
+        isPartOf: {
+          "@type": "Blog",
+          "@id": `${base}/blog`,
+          name: site.site_name,
+          url: `${base}/blog`,
+        },
       },
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Beranda", item: baseUrl() },
-          { "@type": "ListItem", position: 2, name: "Blog", item: `${baseUrl()}/blog` },
-          { "@type": "ListItem", position: 3, name: article.title, item: url },
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: isEn ? "Home" : "Beranda",
+            item: base,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Blog",
+            item: `${base}/blog`,
+          },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: article.title,
+            item: url,
+          },
         ],
       },
       {
         "@type": "WebSite",
-        "@id": `${baseUrl()}#website`,
+        "@id": `${base}#website`,
         name: site.site_name,
-        url: baseUrl(),
+        url: base,
+        inLanguage: site.language === "en" ? "en" : "id-ID",
       },
     ],
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 py-12">
+    <div className="mx-auto w-full max-w-5xl px-5 py-12">
       <JsonLd data={jsonLd} />
 
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted">
         <ol className="flex flex-wrap gap-2">
           <li>
             <Link href="/" className="hover:text-accent">
-              Beranda
+              {isEn ? "Home" : "Beranda"}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
@@ -144,61 +202,87 @@ export default async function ArticlePage({ params }: Props) {
         </ol>
       </nav>
 
-      <header className="mb-8 border-b border-line pb-6">
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-          <time dateTime={article.published_at ?? undefined}>
-            {formatDate(article.published_at)}
-          </time>
-          {article.reading_time_minutes ? (
-            <span>· {article.reading_time_minutes} menit baca</span>
+      <article className="lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-12">
+        <div className="min-w-0">
+          <header className="mb-8 border-b border-line pb-6">
+            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+              <time dateTime={article.published_at ?? undefined}>
+                {formatDate(article.published_at)}
+              </time>
+              {article.reading_time_minutes ? (
+                <span>· {article.reading_time_minutes} menit baca</span>
+              ) : null}
+              {article.word_count ? (
+                <span>· {article.word_count} kata</span>
+              ) : null}
+              {article.author ? <span>· {article.author}</span> : null}
+            </div>
+            <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+              {article.title}
+            </h1>
+            {article.excerpt ? (
+              <p className="mt-4 text-base leading-relaxed text-muted">
+                {article.excerpt}
+              </p>
+            ) : null}
+            {article.keywords?.length ? (
+              <ul className="mt-5 flex flex-wrap gap-2">
+                {article.keywords.map((k: string) => (
+                  <li
+                    key={k}
+                    className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted"
+                  >
+                    {k}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </header>
+
+          {toc.length >= 3 ? (
+            <details className="mb-8 rounded-lg border border-line bg-surface p-4 lg:hidden">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                {isEn ? "Table of contents" : "Daftar Isi"}
+              </summary>
+              <div className="mt-3">
+                <TableOfContents items={toc} variant="inline" />
+              </div>
+            </details>
           ) : null}
-          {article.word_count ? <span>· {article.word_count} kata</span> : null}
-          {article.author ? <span>· {article.author}</span> : null}
+
+          <Markdown content={article.content_md ?? ""} />
+
+          {related.length > 0 ? (
+            <section className="mt-14 border-t border-line pt-8">
+              <h2 className="mb-6 text-xl font-semibold tracking-tight">
+                {isEn ? "Related articles" : "Artikel terkait"}
+              </h2>
+              <div className="flex flex-col gap-6">
+                {related.map((a) => (
+                  <ArticleCard key={a.slug} article={a} />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
-        <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-          {article.title}
-        </h1>
-        {article.excerpt ? (
-          <p className="mt-4 text-base leading-relaxed text-muted">
-            {article.excerpt}
-          </p>
-        ) : null}
-        {article.keywords?.length ? (
-          <ul className="mt-5 flex flex-wrap gap-2">
-            {article.keywords.map((k: string) => (
-              <li
-                key={k}
-                className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted"
-              >
-                {k}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </header>
 
-      <article>
-        <Markdown content={article.content_md ?? ""} />
+        {toc.length >= 3 ? (
+          <aside className="hidden lg:block">
+            <div className="sticky top-24">
+              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">
+                {isEn ? "Contents" : "Daftar Isi"}
+              </h2>
+              <TableOfContents items={toc} />
+            </div>
+          </aside>
+        ) : null}
       </article>
-
-      {related.length > 0 ? (
-        <section className="mt-14 border-t border-line pt-8">
-          <h2 className="mb-6 text-xl font-semibold tracking-tight">
-            Artikel terkait
-          </h2>
-          <div className="flex flex-col gap-6">
-            {related.map((a) => (
-              <ArticleCard key={a.slug} article={a} />
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <WhatsAppChatButton
         number={contact.whatsapp_number}
         message={contact.whatsapp_message}
         slug={article.slug}
-        label="Tanya via WhatsApp"
+        label={isEn ? "Ask via WhatsApp" : "Tanya via WhatsApp"}
       />
     </div>
   );
