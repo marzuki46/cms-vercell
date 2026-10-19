@@ -32,6 +32,7 @@ create table if not exists public.settings (
 );
 
 alter table public.settings add column if not exists theme_template text not null default 'modern';
+alter table public.settings add column if not exists google_site_verification text;
 alter table public.settings add column if not exists whatsapp_number text;
 alter table public.settings add column if not exists whatsapp_message text;
 

@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hasServiceRole } from "@/lib/env";
+import { hasServiceRole, env } from "@/lib/env";
 import type { Article, ArticleListItem } from "@/types/db";
 
 const LIST_COLUMNS =
@@ -12,6 +12,7 @@ export interface SiteSettings {
   site_url: string | null;
   language: string;
   theme_template: "modern" | "editorial" | "minimal";
+  google_site_verification: string | null;
 }
 
 const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
@@ -19,13 +20,19 @@ const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
 export const getSiteSettings = unstable_cache(
   async (): Promise<SiteSettings> => {
     if (!hasServiceRole() || isBuildTime()) {
-      return { site_name: "Portal Konten SEO", site_url: null, language: "id", theme_template: "modern" };
+      return {
+        site_name: "Portal Konten SEO",
+        site_url: null,
+        language: "id",
+        theme_template: "modern",
+        google_site_verification: env.googleSiteVerification || null,
+      };
     }
     try {
       const sb = createAdminClient();
       const { data } = await sb
         .from("settings")
-        .select("site_name,site_url,language,theme_template")
+        .select("site_name,site_url,language,theme_template,google_site_verification")
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
@@ -35,12 +42,19 @@ export const getSiteSettings = unstable_cache(
           site_url: data.site_url ?? null,
           language: data.language ?? "id",
           theme_template: (data.theme_template as "modern" | "editorial" | "minimal") || "modern",
+          google_site_verification: data.google_site_verification || env.googleSiteVerification || null,
         };
       }
     } catch {
       // ignore and fall back to defaults
     }
-    return { site_name: "Portal Konten SEO", site_url: null, language: "id", theme_template: "modern" };
+    return {
+      site_name: "Portal Konten SEO",
+      site_url: null,
+      language: "id",
+      theme_template: "modern",
+      google_site_verification: env.googleSiteVerification || null,
+    };
   },
   ["site-settings"],
   { revalidate: 600, tags: ["settings"] },

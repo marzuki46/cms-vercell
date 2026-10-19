@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, "id" | "updated_at"> = {
   site_url: null,
   language: "id",
   theme_template: "modern",
+  google_site_verification: null,
   ninerouter_url: null,
   ninerouter_key: null,
   model_writer: "openai/gpt-4o",

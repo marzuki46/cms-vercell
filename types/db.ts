@@ -10,6 +10,7 @@ export interface Settings {
   site_url: string | null;
   language: string;
   theme_template?: "modern" | "editorial" | "minimal";
+  google_site_verification?: string | null;
   ninerouter_url: string | null;
   ninerouter_key: string | null;
   model_writer: string;

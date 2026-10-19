@@ -10,6 +10,8 @@ const EMPTY: Form = {
   site_name: "",
   site_url: "",
   language: "id",
+  theme_template: "modern",
+  google_site_verification: "",
   ninerouter_url: "",
   ninerouter_key: "",
   model_writer: "",
@@ -306,6 +308,27 @@ export default function SettingsForm() {
             <span>Auto-publish artikel hasil generate</span>
           </label>
         </div>
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm">
+        <div>
+          <h2 className="text-base font-bold text-[#1d2327]">Google Search Console & SEO</h2>
+          <p className="mt-1 text-xs text-[#646970]">
+            Verifikasi kepemilikan website Anda di Google Search Console tanpa perlu edit kode atau upload file HTML.
+          </p>
+        </div>
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="text-[#50575e] font-semibold">Google Verification Code (HTML Tag)</span>
+          <input
+            value={form.google_site_verification ?? ""}
+            onChange={(e) => set("google_site_verification", e.target.value)}
+            placeholder="mis. d1a2b3c4d5e6f7g8h9i0..."
+            className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
+          />
+          <span className="text-xs text-[#646970] mt-0.5">
+            Cukup masukkan isi dari atribut <code>content=&quot;...&quot;</code> pada tag meta verifikasi Google Search Console.
+          </span>
+        </label>
       </section>
 
       <section className="flex flex-col gap-4 rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm">
