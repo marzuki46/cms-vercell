@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole, env } from "@/lib/env";
+import { availableColumns } from "@/lib/settings-schema";
 import type { Article, ArticleListItem } from "@/types/db";
 
 const LIST_COLUMNS =
@@ -30,19 +31,33 @@ export const getSiteSettings = unstable_cache(
     }
     try {
       const sb = createAdminClient();
+      const present = await availableColumns();
+      const columns = [
+        "site_name",
+        "site_url",
+        "language",
+        ...(present.theme_template ? ["theme_template"] : []),
+        ...(present.google_site_verification ? ["google_site_verification"] : []),
+      ].join(",");
+
       const { data } = await sb
         .from("settings")
-        .select("site_name,site_url,language,theme_template,google_site_verification")
+        .select(columns)
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
       if (data) {
+        const row = data as unknown as Record<string, unknown>;
         return {
-          site_name: data.site_name ?? "Portal Konten SEO",
-          site_url: data.site_url ?? null,
-          language: data.language ?? "id",
-          theme_template: (data.theme_template as "modern" | "editorial" | "minimal") || "modern",
-          google_site_verification: data.google_site_verification || env.googleSiteVerification || null,
+          site_name: (row.site_name as string) ?? "Portal Konten SEO",
+          site_url: (row.site_url as string | null) ?? null,
+          language: (row.language as string) ?? "id",
+          theme_template:
+            (row.theme_template as "modern" | "editorial" | "minimal") || "modern",
+          google_site_verification:
+            (row.google_site_verification as string | null) ||
+            env.googleSiteVerification ||
+            null,
         };
       }
     } catch {
@@ -143,16 +158,24 @@ export const getContactSettings = unstable_cache(
     if (!hasServiceRole() || isBuildTime()) return empty;
     try {
       const sb = createAdminClient();
+      const present = await availableColumns();
+      const columns = [
+        ...(present.whatsapp_number ? ["whatsapp_number"] : []),
+        ...(present.whatsapp_message ? ["whatsapp_message"] : []),
+      ];
+      if (columns.length === 0) return empty;
+
       const { data } = await sb
         .from("settings")
-        .select("whatsapp_number,whatsapp_message")
+        .select(columns.join(","))
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
       if (data) {
+        const row = data as unknown as Record<string, unknown>;
         return {
-          whatsapp_number: data.whatsapp_number ?? null,
-          whatsapp_message: data.whatsapp_message ?? null,
+          whatsapp_number: (row.whatsapp_number as string | null) ?? null,
+          whatsapp_message: (row.whatsapp_message as string | null) ?? null,
         };
       }
     } catch {

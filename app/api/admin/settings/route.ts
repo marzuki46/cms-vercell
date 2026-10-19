@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi, jsonError } from "@/lib/api";
 import { getSettings, saveSettings } from "@/lib/settings";
 import { DEFAULT_SETTINGS } from "@/lib/settings";
+import { missingColumns, repairSql } from "@/lib/settings-schema";
 import type { Settings } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,23 @@ export async function GET() {
   const s = await getSettings();
   const key = s.ninerouter_key;
   const masked: Settings = { ...s, ninerouter_key: "" };
+
+  let missing: string[] = [];
+  let repair = "";
+  try {
+    missing = await missingColumns();
+    repair = await repairSql();
+  } catch {
+    // database unavailable; settings still returned with defaults
+  }
+
   return NextResponse.json({
     settings: masked,
     defaults: DEFAULT_SETTINGS,
     hasKey: Boolean(key),
     keyPreview: key ? `••••${key.slice(-4)}` : null,
+    missingColumns: missing,
+    repairSql: repair,
   });
 }
 
@@ -50,6 +63,13 @@ export async function PUT(request: Request) {
       keyPreview: key ? `••••${key.slice(-4)}` : null,
     });
   } catch (err) {
-    return jsonError((err as Error).message, 500);
+    const message = (err as Error).message;
+    if (/column|schema cache|PGRST/i.test(message)) {
+      return jsonError(
+        `${message} — Jalankan SQL perbaikan dari tab Pengaturan Situs di admin.`,
+        409,
+      );
+    }
+    return jsonError(message, 500);
   }
 }

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole } from "@/lib/env";
+import {
+  missingColumns,
+  buildRepairSql,
+} from "@/lib/settings-schema";
 
 export const dynamic = "force-dynamic";
 
@@ -141,27 +145,37 @@ export async function POST() {
 
   try {
     const sb = createAdminClient();
-    
-    // We check connection by running a query or executing raw SQL
-    // Supabase client can execute sql through postgres function or verify table existence
+
     const { error: probeError } = await sb.from("settings").select("id").limit(1);
-    
+
     if (probeError && probeError.code === "42P01") {
-      // Table doesn't exist yet! We return the raw SQL for one-click copy, or guidance
       return NextResponse.json({
         success: false,
         tablesExist: false,
+        missingColumns: [],
         sql: INIT_SQL,
         message: "Tabel belum dibuat di Supabase. Salin SQL ini dan jalankan 1 klik di Supabase SQL Editor.",
       });
     }
+    if (probeError) {
+      return NextResponse.json(
+        { success: false, error: probeError.message, sql: INIT_SQL },
+        { status: 500 },
+      );
+    }
 
-    // Attempt to ensure columns exist
+    const missing = await missingColumns();
+    const repair = buildRepairSql(missing);
+
     return NextResponse.json({
-      success: true,
+      success: missing.length === 0,
       tablesExist: true,
-      message: "Database Supabase terhubung & siap digunakan!",
-      sql: INIT_SQL,
+      missingColumns: missing,
+      sql: repair,
+      message:
+        missing.length === 0
+          ? "Database Supabase terhubung & semua kolom siap digunakan."
+          : `Kolom belum lengkap: ${missing.join(", ")}. Jalankan SQL di bawah di Supabase SQL Editor.`,
     });
   } catch (err) {
     return NextResponse.json(
