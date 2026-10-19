@@ -39,24 +39,26 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  if (!isLogin && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin/login";
-    url.search = "";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
-  }
+  if (pathname.startsWith("/admin")) {
+    if (!isLogin && !user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/login";
+      url.search = "";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
 
-  if (isLogin && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin";
-    url.search = "";
-    return NextResponse.redirect(url);
+    if (isLogin && user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
