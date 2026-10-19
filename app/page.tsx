@@ -1,6 +1,8 @@
 import Link from "next/link";
 import ArticleCard from "@/components/article-card";
 import WhatsAppChatButton from "@/components/whatsapp/chat-button";
+import JsonLd from "@/components/jsonld";
+import { env } from "@/lib/env";
 import {
   getPublishedArticles,
   getPublishedCount,
@@ -39,12 +41,6 @@ export default async function Home() {
           >
             Jelajahi blog
           </Link>
-          <Link
-            href="/admin"
-            className="rounded-md border border-line px-5 py-2.5 text-sm font-medium hover:border-accent hover:text-accent"
-          >
-            Buka admin
-          </Link>
           <WhatsAppChatButton
             variant="inline"
             number={contact.whatsapp_number}
@@ -69,6 +65,31 @@ export default async function Home() {
       </section>
 
       <section className="py-14">
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebSite",
+                "@id": `${env.siteUrl || "http://localhost:3000"}#website`,
+                url: env.siteUrl || "http://localhost:3000",
+                name: site.site_name,
+                description: `Artikel, panduan, dan wawasan terbaru dari ${site.site_name}.`,
+                potentialAction: {
+                  "@type": "SearchAction",
+                  target: `${env.siteUrl || "http://localhost:3000"}/blog?q={search_term_string}`,
+                  "query-input": "required name=search_term_string",
+                },
+              },
+              {
+                "@type": "Organization",
+                "@id": `${env.siteUrl || "http://localhost:3000"}#organization`,
+                name: site.site_name,
+                url: env.siteUrl || "http://localhost:3000",
+              },
+            ],
+          }}
+        />
         <div className="mb-8 flex items-end justify-between gap-4 border-b border-line pb-4">
           <h2 className="text-xl font-semibold tracking-tight">
             Artikel terbaru
@@ -83,11 +104,7 @@ export default async function Home() {
 
         {articles.length === 0 ? (
           <p className="text-sm text-muted">
-            Belum ada artikel yang diterbitkan. Buka{" "}
-            <Link href="/admin" className="text-accent hover:underline">
-              /admin
-            </Link>{" "}
-            untuk mengisi topik, generate konten, lalu publish.
+            Belum ada artikel yang diterbitkan. Silakan kembali lagi nanti untuk membaca pembaruan wawasan terbaru kami.
           </p>
         ) : (
           <div className="grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">

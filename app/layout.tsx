@@ -38,8 +38,31 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: site.site_name,
       url: baseUrl,
       locale: "id_ID",
+      images: [
+        {
+          url: `${baseUrl}/api/og`,
+          width: 1200,
+          height: 630,
+          alt: site.site_name,
+        },
+      ],
     },
-    robots: { index: true, follow: true },
+    twitter: {
+      card: "summary_large_image",
+      title: site.site_name,
+      description: `Artikel, panduan, dan wawasan terbaru dari ${site.site_name}.`,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
   };
 }
 
@@ -80,12 +103,6 @@ export default async function RootLayout({
               </Link>
               <Link href="/contact" className="hover:text-foreground transition">
                 Kontak
-              </Link>
-              <Link
-                href="/admin"
-                className="text-accent font-semibold px-3 py-1 rounded-full border border-accent/30 hover:bg-accent hover:text-white transition"
-              >
-                Admin
               </Link>
             </nav>
           </div>

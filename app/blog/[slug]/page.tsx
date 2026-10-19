@@ -10,6 +10,7 @@ import {
   getPublishedSlugs,
   getRelatedArticles,
   getContactSettings,
+  getSiteSettings,
 } from "@/lib/content";
 import { env } from "@/lib/env";
 
@@ -30,14 +31,17 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const [article, site] = await Promise.all([
+    getArticleBySlug(slug),
+    getSiteSettings(),
+  ]);
   if (!article) return { title: "Artikel tidak ditemukan" };
 
   const url = `${baseUrl()}/blog/${article.slug}`;
   const description =
     article.seo_description ||
     article.excerpt ||
-    "Artikel dari Content Autopilot.";
+    `Artikel dari ${site.site_name}.`;
 
   return {
     title: article.seo_title || article.title,
@@ -53,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       modifiedTime: article.updated_at,
       authors: article.author ? [article.author] : undefined,
       tags: article.keywords ?? undefined,
-      siteName: "Content Autopilot",
+      siteName: site.site_name,
     },
     twitter: {
       card: "summary_large_image",
@@ -65,7 +69,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const article = await getArticleBySlug(slug);
+  const [article, site] = await Promise.all([
+    getArticleBySlug(slug),
+    getSiteSettings(),
+  ]);
   if (!article) notFound();
 
   const url = `${baseUrl()}/blog/${article.slug}`;
@@ -87,11 +94,11 @@ export default async function ArticlePage({ params }: Props) {
         description,
         datePublished: article.published_at,
         dateModified: article.updated_at,
-        inLanguage: "id",
+        inLanguage: site.language || "id",
         author: article.author
           ? { "@type": "Person", name: article.author }
           : undefined,
-        publisher: { "@type": "Organization", name: "Content Autopilot" },
+        publisher: { "@type": "Organization", name: site.site_name },
         keywords: article.keywords?.join(", "),
         wordCount: article.word_count ?? undefined,
         timeRequired: article.reading_time_minutes
@@ -109,7 +116,7 @@ export default async function ArticlePage({ params }: Props) {
       {
         "@type": "WebSite",
         "@id": `${baseUrl()}#website`,
-        name: "Content Autopilot",
+        name: site.site_name,
         url: baseUrl(),
       },
     ],
@@ -158,7 +165,7 @@ export default async function ArticlePage({ params }: Props) {
         ) : null}
         {article.keywords?.length ? (
           <ul className="mt-5 flex flex-wrap gap-2">
-            {article.keywords.map((k) => (
+            {article.keywords.map((k: string) => (
               <li
                 key={k}
                 className="rounded-full border border-line px-2.5 py-0.5 text-xs text-muted"
