@@ -89,8 +89,8 @@ npm run build        # produksi
 
 `vercel.json` mendefinisikan cron:
 
-- `/api/cron/publish` — `*/15 * * * *` (publish artikel `scheduled` yang jatuh tempo)
-- `/api/cron/generate` — `0 */6 * * *`
+- `/api/cron/publish` — `0 3 * * *` (publish artikel `scheduled` yang jatuh tempo)
+- `/api/cron/generate` — `0 4 * * *`
 - `/api/cron/brainstorm` — `0 2 * * *`
 
 Vercel otomatis mengirim `Authorization: Bearer $CRON_SECRET` bila `CRON_SECRET` diset.
