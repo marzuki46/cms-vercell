@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { authorizeCron } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let paths: string[] = ["/", "/blog"];
+  let paths: string[] = ["/", "/blog", "/about", "/contact", "/api/og"];
   try {
     const body = await request.json();
     if (Array.isArray(body?.paths)) {
@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
     // no body is fine — default paths are revalidated
   }
 
+  revalidateTag("settings", "max");
+  revalidateTag("articles", "max");
   for (const p of paths) revalidatePath(p);
   revalidatePath("/sitemap.xml");
   revalidatePath("/rss.xml");

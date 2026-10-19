@@ -18,62 +18,66 @@ export interface SiteSettings {
 
 const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
 
-export const getSiteSettings = unstable_cache(
-  async (): Promise<SiteSettings> => {
-    if (!hasServiceRole() || isBuildTime()) {
-      return {
-        site_name: "Portal Konten SEO",
-        site_url: null,
-        language: "id",
-        theme_template: "modern",
-        google_site_verification: env.googleSiteVerification || null,
-      };
-    }
-    try {
-      const sb = createAdminClient();
-      const present = await availableColumns();
-      const columns = [
-        "site_name",
-        "site_url",
-        "language",
-        ...(present.theme_template ? ["theme_template"] : []),
-        ...(present.google_site_verification ? ["google_site_verification"] : []),
-      ].join(",");
+function fallbackSiteSettings(): SiteSettings {
+  return {
+    site_name: env.siteName || "Situs Anda",
+    site_url: null,
+    language: "id",
+    theme_template: "modern",
+    google_site_verification: env.googleSiteVerification || null,
+  };
+}
 
-      const { data } = await sb
-        .from("settings")
-        .select(columns)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (data) {
-        const row = data as unknown as Record<string, unknown>;
-        return {
-          site_name: (row.site_name as string) ?? "Portal Konten SEO",
-          site_url: (row.site_url as string | null) ?? null,
-          language: (row.language as string) ?? "id",
-          theme_template:
-            (row.theme_template as "modern" | "editorial" | "minimal") || "modern",
-          google_site_verification:
-            (row.google_site_verification as string | null) ||
-            env.googleSiteVerification ||
-            null,
-        };
-      }
-    } catch {
-      // ignore and fall back to defaults
-    }
-    return {
-      site_name: "Portal Konten SEO",
-      site_url: null,
-      language: "id",
-      theme_template: "modern",
-      google_site_verification: env.googleSiteVerification || null,
-    };
-  },
-  ["site-settings"],
-  { revalidate: 600, tags: ["settings"] },
-);
+/** Raw DB read. Throws on failure so the fallback is never written to the cache. */
+async function loadSiteSettings(): Promise<SiteSettings> {
+  const sb = createAdminClient();
+  const present = await availableColumns();
+  const columns = [
+    "site_name",
+    "site_url",
+    "language",
+    ...(present.theme_template ? ["theme_template"] : []),
+    ...(present.google_site_verification ? ["google_site_verification"] : []),
+  ].join(",");
+
+  const { data, error } = await sb
+    .from("settings")
+    .select(columns)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return fallbackSiteSettings();
+
+  const row = data as unknown as Record<string, unknown>;
+  return {
+    site_name: (row.site_name as string | null) || fallbackSiteSettings().site_name,
+    site_url: (row.site_url as string | null) ?? null,
+    language: (row.language as string) ?? "id",
+    theme_template:
+      (row.theme_template as "modern" | "editorial" | "minimal") || "modern",
+    google_site_verification:
+      (row.google_site_verification as string | null) ||
+      env.googleSiteVerification ||
+      null,
+  };
+}
+
+const cachedSiteSettings = unstable_cache(loadSiteSettings, ["site-settings"], {
+  revalidate: 600,
+  tags: ["settings"],
+});
+
+export async function getSiteSettings(): Promise<SiteSettings> {
+  if (!hasServiceRole() || isBuildTime()) return fallbackSiteSettings();
+  try {
+    return await cachedSiteSettings();
+  } catch (err) {
+    console.error("getSiteSettings:", (err as Error).message);
+    return fallbackSiteSettings();
+  }
+}
 
 export const getPublishedArticles = unstable_cache(
   async (limit = 12, offset = 0): Promise<ArticleListItem[]> => {
