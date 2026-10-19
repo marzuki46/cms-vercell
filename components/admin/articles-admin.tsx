@@ -19,20 +19,19 @@ interface Row {
 }
 
 const TABS: { value: ArticleStatus | "all"; label: string }[] = [
+  { value: "all", label: "Semua" },
+  { value: "published", label: "Terbit (Published)" },
   { value: "draft", label: "Draft" },
   { value: "scheduled", label: "Terjadwal" },
-  { value: "published", label: "Terbit" },
-  { value: "archived", label: "Arsip" },
-  { value: "all", label: "Semua" },
+  { value: "archived", label: "Sampah/Arsip" },
 ];
 
 export default function ArticlesAdmin() {
-  const [tab, setTab] = useState<ArticleStatus | "all">("draft");
+  const [tab, setTab] = useState<ArticleStatus | "all">("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scheduleInto, setScheduleInto] = useState<Record<string, string>>({});
 
   const query = tab === "all" ? "" : `?status=${tab}`;
 
@@ -86,8 +85,26 @@ export default function ArticlesAdmin() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-4">
+      {/* Top action bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1d2327]">Semua Pos</h1>
+          <p className="text-xs text-[#646970] mt-0.5">
+            Daftar seluruh artikel blog yang dibuat secara manual atau otomatis via AI.
+          </p>
+        </div>
+
+        <Link
+          href="/admin/articles/new"
+          className="px-4 py-2 bg-[#2271b1] text-white text-sm font-semibold rounded hover:bg-[#135e96] transition shadow-sm"
+        >
+          ➕ Tambah Pos Baru
+        </Link>
+      </div>
+
+      {/* Tabs / Filter Filter WP style */}
+      <div className="flex items-center gap-2 border-b border-[#c3c4c7] pb-2 text-xs">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -96,10 +113,10 @@ export default function ArticlesAdmin() {
               setLoading(true);
               setTab(t.value);
             }}
-            className={`rounded-full border px-3 py-1 text-sm ${
+            className={`px-2.5 py-1 rounded transition ${
               tab === t.value
-                ? "border-accent bg-accent text-accent-fg"
-                : "border-line text-muted hover:border-accent hover:text-accent"
+                ? "font-bold text-[#2271b1] bg-white border border-[#c3c4c7]"
+                : "text-[#50575e] hover:text-[#2271b1]"
             }`}
           >
             {t.label}
@@ -108,124 +125,115 @@ export default function ArticlesAdmin() {
       </div>
 
       {error ? (
-        <p className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-warn">
+        <div className="bg-[#fcf0f1] border-l-4 border-[#d63638] p-3 text-sm text-[#3c434a]">
           {error}
-        </p>
+        </div>
       ) : null}
 
-      {loading ? (
-        <p className="text-sm text-muted">Memuat…</p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted">Tidak ada artikel pada filter ini.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
-          {rows.map((a) => (
-            <li key={a.id} className="flex flex-col gap-3 px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <Link
-                    href={`/admin/articles/${a.id}`}
-                    className="font-medium hover:text-accent"
-                  >
-                    {a.title}
-                  </Link>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {a.status}
-                    {a.word_count ? ` · ${a.word_count} kata` : ""}
-                    {a.reading_time_minutes
-                      ? ` · ${a.reading_time_minutes} menit`
-                      : ""}
-                    {a.author ? ` · ${a.author}` : ""}
-                  </p>
-                </div>
-                {a.status === "published" ? (
-                  <Link
-                    href={`/blog/${a.slug}`}
-                    target="_blank"
-                    className="text-xs text-accent hover:underline"
-                  >
-                    Lihat publik ↗
-                  </Link>
-                ) : null}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {a.status === "draft" ? (
-                  <button
-                    type="button"
-                    disabled={busyId === a.id}
-                    onClick={() => patch(a.id, { status: "published" })}
-                    className="rounded-md bg-accent px-2.5 py-1 text-accent-fg hover:opacity-90 disabled:opacity-50"
-                  >
-                    Publish sekarang
-                  </button>
-                ) : null}
-                {a.status === "published" ? (
-                  <button
-                    type="button"
-                    disabled={busyId === a.id}
-                    onClick={() => patch(a.id, { status: "draft" })}
-                    className="rounded-md border border-line px-2.5 py-1 hover:border-accent hover:text-accent disabled:opacity-50"
-                  >
-                    Tarik ke draft
-                  </button>
-                ) : null}
-                {a.status === "archived" ? (
-                  <button
-                    type="button"
-                    disabled={busyId === a.id}
-                    onClick={() => patch(a.id, { status: "draft" })}
-                    className="rounded-md border border-line px-2.5 py-1 hover:border-accent hover:text-accent disabled:opacity-50"
-                  >
-                    Pulihkan
-                  </button>
-                ) : null}
-                {a.status !== "archived" ? (
-                  <button
-                    type="button"
-                    disabled={busyId === a.id}
-                    onClick={() => patch(a.id, { status: "archived" })}
-                    className="rounded-md border border-line px-2.5 py-1 hover:border-accent hover:text-accent disabled:opacity-50"
-                  >
-                    Arsipkan
-                  </button>
-                ) : null}
-
-                <span className="ml-1 flex items-center gap-1">
-                  <input
-                    type="datetime-local"
-                    value={scheduleInto[a.id] ?? ""}
-                    onChange={(e) =>
-                      setScheduleInto((s) => ({ ...s, [a.id]: e.target.value }))
-                    }
-                    className="rounded-md border border-line bg-surface px-2 py-1"
-                  />
-                  <button
-                    type="button"
-                    disabled={busyId === a.id || !scheduleInto[a.id]}
-                    onClick={() =>
-                      patch(a.id, {
-                        status: "scheduled",
-                        scheduled_for: new Date(
-                          scheduleInto[a.id],
-                        ).toISOString(),
-                      })
-                    }
-                    className="rounded-md border border-line px-2.5 py-1 hover:border-accent hover:text-accent disabled:opacity-50"
-                  >
-                    Jadwalkan
-                  </button>
-                </span>
-                {a.status === "scheduled" && a.scheduled_for ? (
-                  <span className="text-muted">
-                    → {new Date(a.scheduled_for).toLocaleString("id-ID")}
-                  </span>
-                ) : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* WP-Style Table */}
+      <div className="bg-white border border-[#c3c4c7] rounded shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="p-8 text-center text-sm text-[#646970]">Memuat data pos...</div>
+        ) : rows.length === 0 ? (
+          <div className="p-8 text-center text-sm text-[#646970]">
+            Tidak ada pos pada kategori ini. Klik tombol <strong>Tambah Pos Baru</strong> untuk mulai menulis.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-[#f6f7f7] border-b border-[#c3c4c7] text-[#2c3338] text-xs uppercase font-semibold">
+                  <th className="py-3 px-4">Judul Pos</th>
+                  <th className="py-3 px-4 w-32">Penulis</th>
+                  <th className="py-3 px-4 w-28">Status</th>
+                  <th className="py-3 px-4 w-28">Kata</th>
+                  <th className="py-3 px-4 w-40">Tanggal</th>
+                  <th className="py-3 px-4 w-48 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#dcdcde]">
+                {rows.map((a) => (
+                  <tr key={a.id} className="hover:bg-[#fbfbfb] transition group">
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-[#2271b1] group-hover:underline">
+                        <Link href={`/admin/articles/${a.id}`}>{a.title}</Link>
+                      </div>
+                      <div className="text-xs text-[#646970] mt-1 flex items-center gap-3">
+                        <Link href={`/admin/articles/${a.id}`} className="hover:text-[#2271b1]">
+                          Edit
+                        </Link>
+                        <span>|</span>
+                        {a.status === "published" ? (
+                          <Link
+                            href={`/blog/${a.slug}`}
+                            target="_blank"
+                            className="text-[#008a20] hover:underline"
+                          >
+                            Lihat di Web ↗
+                          </Link>
+                        ) : (
+                          <span className="italic text-gray-400">Belum publish</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-xs text-[#50575e]">{a.author || "Admin"}</td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                          a.status === "published"
+                            ? "bg-[#edfaef] text-[#008a20]"
+                            : a.status === "draft"
+                            ? "bg-[#f0f0f1] text-[#50575e]"
+                            : "bg-[#fcf9e8] text-[#996800]"
+                        }`}
+                      >
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-xs text-[#50575e]">{a.word_count ?? 0}</td>
+                    <td className="py-3 px-4 text-xs text-[#50575e]">
+                      {a.published_at ? (
+                        <span>Terbit: {new Date(a.published_at).toLocaleDateString("id-ID")}</span>
+                      ) : (
+                        <span>Dibuat: {new Date(a.created_at).toLocaleDateString("id-ID")}</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5 text-xs">
+                        {a.status !== "published" ? (
+                          <button
+                            type="button"
+                            disabled={busyId === a.id}
+                            onClick={() => patch(a.id, { status: "published" })}
+                            className="px-2.5 py-1 bg-[#008a20] text-white rounded hover:bg-[#007017] transition disabled:opacity-50"
+                          >
+                            Publish
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busyId === a.id}
+                            onClick={() => patch(a.id, { status: "draft" })}
+                            className="px-2.5 py-1 bg-[#f0f0f1] border border-[#c3c4c7] text-[#50575e] rounded hover:bg-[#e0e0e0] transition disabled:opacity-50"
+                          >
+                            Jadikan Draft
+                          </button>
+                        )}
+                        <Link
+                          href={`/admin/articles/${a.id}`}
+                          className="px-2.5 py-1 bg-[#2271b1] text-white rounded hover:bg-[#135e96] transition"
+                        >
+                          Edit
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -39,17 +39,20 @@ async function loadData() {
     }),
   );
 
-  const [{ data: jobs }, { data: articles }] = await Promise.all([
+  const [{ data: jobs }, { data: articles }, { count: totalLeads }] = await Promise.all([
     sb
       .from("generation_jobs")
       .select("id,type,status,model,error,started_at,finished_at")
       .order("started_at", { ascending: false })
-      .limit(8),
+      .limit(6),
     sb
       .from("articles")
-      .select("id,title,slug,status,created_at")
+      .select("id,title,slug,status,created_at,author,word_count")
       .order("created_at", { ascending: false })
-      .limit(8),
+      .limit(6),
+    sb
+      .from("whatsapp_leads")
+      .select("id", { count: "exact", head: true }),
   ]);
 
   return {
@@ -57,6 +60,7 @@ async function loadData() {
     topicCounts: Object.fromEntries(topicCounts) as Record<string, number>,
     jobs: jobs ?? [],
     articles: articles ?? [],
+    totalLeads: totalLeads ?? 0,
   };
 }
 
@@ -65,106 +69,172 @@ export default async function AdminDashboard() {
 
   if (!data) {
     return (
-      <div className="rounded-lg border border-line bg-surface p-6">
-        <h1 className="text-lg font-semibold">Supabase belum dikonfigurasi</h1>
-        <p className="mt-2 text-sm text-muted">
-          Isi <code>NEXT_PUBLIC_SUPABASE_URL</code> dan{" "}
-          <code>SUPABASE_SERVICE_ROLE_KEY</code> pada environment, lalu jalankan
-          migrasi <code>supabase/migrations/0001_init.sql</code>.
+      <div className="bg-white border border-[#c3c4c7] p-6 rounded-lg shadow-sm">
+        <h1 className="text-lg font-bold text-[#1d2327]">Selamat Datang di CMS SEO WP-Lite</h1>
+        <p className="mt-2 text-sm text-[#646970]">
+          Database Supabase belum terhubung di environment lokal. Jalankan di Vercel atau masukkan <code>NEXT_PUBLIC_SUPABASE_URL</code> dan <code>SUPABASE_SERVICE_ROLE_KEY</code> ke <code>.env.local</code>.
         </p>
       </div>
     );
   }
 
-  const { articleCounts, topicCounts, jobs, articles } = data;
+  const { articleCounts, topicCounts, jobs, articles, totalLeads } = data;
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {ARTICLE_STATUSES.map((status) => (
-          <div key={status} className="rounded-lg border border-line p-4">
-            <p className="text-xs uppercase tracking-wide text-muted">
-              Artikel {status}
-            </p>
-            <p className="mt-1 text-2xl font-semibold">
-              {articleCounts[status] ?? 0}
-            </p>
-          </div>
-        ))}
+    <div className="flex flex-col gap-6">
+      {/* Welcome Banner */}
+      <div className="bg-white border border-[#c3c4c7] p-6 rounded-lg shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1d2327]">
+            Dashboard Konten & SEO
+          </h1>
+          <p className="text-sm text-[#646970] mt-1">
+            Kelola pos blog, generate artikel SEO otomatis dengan AI, dan pantau prospek WhatsApp Anda.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/articles/new"
+            className="px-4 py-2 bg-[#2271b1] text-white text-sm font-semibold rounded hover:bg-[#135e96] transition shadow-sm"
+          >
+            ✏️ Tulis Pos Baru
+          </Link>
+          <Link
+            href="/admin/topics"
+            className="px-4 py-2 bg-[#f6f7f7] text-[#2c3338] border border-[#dcdcde] text-sm font-semibold rounded hover:bg-[#ebebeb] transition"
+          >
+            💡 Ide Topik AI
+          </Link>
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        {TOPIC_STATUSES.map((status) => (
-          <div key={status} className="rounded-lg border border-line p-4">
-            <p className="text-xs uppercase tracking-wide text-muted">
-              Topik {status}
-            </p>
-            <p className="mt-1 text-xl font-semibold">
-              {topicCounts[status] ?? 0}
-            </p>
-          </div>
-        ))}
+      {/* WP-Style Stats Grid ("At a Glance") */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-white border border-[#c3c4c7] p-3.5 rounded shadow-sm">
+          <span className="text-[11px] font-bold text-[#646970] uppercase">Terbit (Live)</span>
+          <p className="text-2xl font-extrabold text-[#008a20] mt-1">{articleCounts.published ?? 0}</p>
+        </div>
+        <div className="bg-white border border-[#c3c4c7] p-3.5 rounded shadow-sm">
+          <span className="text-[11px] font-bold text-[#646970] uppercase">Draft</span>
+          <p className="text-2xl font-extrabold text-[#2271b1] mt-1">{articleCounts.draft ?? 0}</p>
+        </div>
+        <div className="bg-white border border-[#c3c4c7] p-3.5 rounded shadow-sm">
+          <span className="text-[11px] font-bold text-[#646970] uppercase">Terjadwal</span>
+          <p className="text-2xl font-extrabold text-[#996800] mt-1">{articleCounts.scheduled ?? 0}</p>
+        </div>
+        <div className="bg-white border border-[#c3c4c7] p-3.5 rounded shadow-sm">
+          <span className="text-[11px] font-bold text-[#646970] uppercase">Ide Topik</span>
+          <p className="text-2xl font-extrabold text-[#50575e] mt-1">{topicCounts.idea ?? 0}</p>
+        </div>
+        <div className="bg-white border border-[#c3c4c7] p-3.5 rounded shadow-sm">
+          <span className="text-[11px] font-bold text-[#646970] uppercase">Topik Disetujui</span>
+          <p className="text-2xl font-extrabold text-[#2271b1] mt-1">{topicCounts.approved ?? 0}</p>
+        </div>
+        <div className="bg-white border border-[#c3c4c7] p-3.5 rounded shadow-sm">
+          <span className="text-[11px] font-bold text-[#646970] uppercase">Lead WhatsApp</span>
+          <p className="text-2xl font-extrabold text-[#00a32a] mt-1">{totalLeads}</p>
+        </div>
       </div>
 
-      <GeneratePanel />
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section>
-          <h2 className="mb-3 text-base font-semibold tracking-tight">
-            Job terakhir
+      {/* AI Content Engine Widget */}
+      <div className="bg-white border border-[#c3c4c7] rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-[#f6f7f7] px-4 py-3 border-b border-[#dcdcde] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-[#1d2327] flex items-center gap-1.5">
+            <span>⚡</span>
+            <span>Mesin Konten AI (9Router)</span>
           </h2>
-          {jobs.length === 0 ? (
-            <p className="text-sm text-muted">Belum ada job.</p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
-              {jobs.map((j) => (
-                <li
-                  key={j.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
-                >
-                  <span className="font-medium">{j.type}</span>
-                  <span
-                    className={
-                      j.status === "success"
-                        ? "text-good"
-                        : j.status === "error"
-                          ? "text-warn"
-                          : "text-muted"
-                    }
-                  >
-                    {j.status}
-                  </span>
-                  <span className="text-xs text-muted" title={j.error ?? ""}>
-                    {formatDate(j.started_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          <Link href="/admin/settings" className="text-xs text-[#2271b1] hover:underline">
+            Ubah Model & Prompt →
+          </Link>
+        </div>
+        <div className="p-4">
+          <GeneratePanel />
+        </div>
+      </div>
 
-        <section>
-          <h2 className="mb-3 text-base font-semibold tracking-tight">
-            Artikel terbaru
-          </h2>
-          {articles.length === 0 ? (
-            <p className="text-sm text-muted">Belum ada artikel.</p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
-              {articles.map((a) => (
-                <li key={a.id} className="px-4 py-3 text-sm">
-                  <Link
-                    href={`/admin/articles/${a.id}`}
-                    className="font-medium hover:text-accent"
-                  >
-                    {a.title}
-                  </Link>
-                  <span className="ml-2 text-xs text-muted">{a.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      {/* Two Column Layout for Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Articles */}
+        <div className="bg-white border border-[#c3c4c7] rounded-lg shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-[#f6f7f7] px-4 py-3 border-b border-[#dcdcde] flex items-center justify-between">
+            <h2 className="text-sm font-bold text-[#1d2327]">Pos Terbaru</h2>
+            <Link href="/admin/articles" className="text-xs text-[#2271b1] hover:underline">
+              Semua Pos →
+            </Link>
+          </div>
+          <div className="p-0 flex-1">
+            {articles.length === 0 ? (
+              <p className="p-4 text-sm text-[#646970]">Belum ada pos yang dibuat.</p>
+            ) : (
+              <ul className="divide-y divide-[#dcdcde] text-sm">
+                {articles.map((a) => (
+                  <li key={a.id} className="p-3.5 hover:bg-[#f6f7f7] flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/admin/articles/${a.id}`}
+                        className="font-semibold text-[#2271b1] hover:underline truncate block"
+                      >
+                        {a.title}
+                      </Link>
+                      <div className="text-xs text-[#646970] mt-0.5 flex gap-2">
+                        <span>{formatDate(a.created_at)}</span>
+                        <span>·</span>
+                        <span>{a.word_count ?? 0} kata</span>
+                      </div>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                        a.status === "published"
+                          ? "bg-[#edfaef] text-[#008a20]"
+                          : a.status === "draft"
+                          ? "bg-[#f0f0f1] text-[#50575e]"
+                          : "bg-[#fcf9e8] text-[#996800]"
+                      }`}
+                    >
+                      {a.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Generation Logs */}
+        <div className="bg-white border border-[#c3c4c7] rounded-lg shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-[#f6f7f7] px-4 py-3 border-b border-[#dcdcde]">
+            <h2 className="text-sm font-bold text-[#1d2327]">Aktivitas AI Terakhir</h2>
+          </div>
+          <div className="p-0 flex-1">
+            {jobs.length === 0 ? (
+              <p className="p-4 text-sm text-[#646970]">Belum ada log pekerjaan AI.</p>
+            ) : (
+              <ul className="divide-y divide-[#dcdcde] text-sm">
+                {jobs.map((j) => (
+                  <li key={j.id} className="p-3.5 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-semibold text-[#1d2327] capitalize">{j.type}</span>
+                      <p className="text-xs text-[#646970] mt-0.5">
+                        {j.model || "default model"} · {formatDate(j.started_at)}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                        j.status === "success"
+                          ? "bg-[#edfaef] text-[#008a20]"
+                          : j.status === "error"
+                          ? "bg-[#fcf0f1] text-[#d63638]"
+                          : "bg-[#e5f5fa] text-[#0073aa]"
+                      }`}
+                    >
+                      {j.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

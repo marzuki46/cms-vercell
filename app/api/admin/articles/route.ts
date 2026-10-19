@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminApi, jsonError } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toSlug, withSuffix } from "@/lib/slug";
+import { countWords, readingTimeMinutes } from "@/lib/text";
 import type { ArticleStatus } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -38,4 +40,73 @@ export async function GET(request: NextRequest) {
   const { data, count, error } = await query;
   if (error) return jsonError(error.message, 500);
   return NextResponse.json({ articles: data ?? [], total: count ?? 0 });
+}
+
+export async function POST(request: NextRequest) {
+  const guard = await requireAdminApi();
+  if (guard.response) return guard.response;
+
+  let body: {
+    title?: string;
+    content_md?: string;
+    excerpt?: string;
+    seo_title?: string;
+    seo_description?: string;
+    author?: string;
+    status?: ArticleStatus;
+  };
+
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body", 400);
+  }
+
+  const title = (body.title ?? "").trim();
+  if (!title) return jsonError("Judul artikel wajib diisi", 400);
+
+  const content_md = body.content_md ?? "";
+  const word_count = countWords(content_md);
+  const reading_time = readingTimeMinutes(word_count);
+
+  const sb = createAdminClient();
+  const baseSlug = toSlug(title) || "artikel-baru";
+
+  // Check unique slug
+  const { data: existing } = await sb
+    .from("articles")
+    .select("slug")
+    .ilike("slug", `${baseSlug}%`);
+
+  const taken = new Set((existing ?? []).map((r) => r.slug));
+  let slug = baseSlug;
+  if (taken.has(slug)) {
+    let n = 2;
+    while (taken.has(withSuffix(baseSlug, n))) n++;
+    slug = withSuffix(baseSlug, n);
+  }
+
+  const status: ArticleStatus = body.status && STATUSES.includes(body.status) ? body.status : "draft";
+  const published_at = status === "published" ? new Date().toISOString() : null;
+
+  const { data: created, error } = await sb
+    .from("articles")
+    .insert({
+      title,
+      slug,
+      content_md,
+      excerpt: body.excerpt || null,
+      seo_title: body.seo_title || title,
+      seo_description: body.seo_description || null,
+      author: body.author || "Admin",
+      status,
+      published_at,
+      word_count,
+      reading_time_minutes: reading_time,
+    })
+    .select("*")
+    .single();
+
+  if (error) return jsonError(error.message, 500);
+  return NextResponse.json({ article: created }, { status: 201 });
 }

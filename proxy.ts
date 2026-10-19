@@ -32,6 +32,12 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isLogin = pathname === "/admin/login";
+  const isDev = process.env.NODE_ENV !== "production";
+
+  // In local dev without Supabase credentials, allow browsing the admin UI
+  if (isDev && (!env.supabaseUrl || !env.supabaseAnonKey)) {
+    return response;
+  }
 
   if (!isLogin && !user) {
     const url = request.nextUrl.clone();
