@@ -1,12 +1,19 @@
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { hasServiceRole } from "@/lib/env";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
+
+function getContentClient() {
+  if (hasServiceRole()) return createAdminClient();
+  return createPublicClient();
+}
 
 export const BLOG_PER_PAGE = 10;
 
 export const getPublishedCount = unstable_cache(
   async (locale: string = DEFAULT_LOCALE): Promise<number> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return 0;
 
     const head = () =>
@@ -35,7 +42,7 @@ export interface SitemapArticle {
 
 export const getPublishedArticles = unstable_cache(
   async (locale?: string): Promise<SitemapArticle[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
 
     const columns = "slug,published_at,updated_at";

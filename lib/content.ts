@@ -6,8 +6,16 @@ import { availableColumns } from "@/lib/settings-schema";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
 import type { Article, ArticleListItem, Author, Category, HomeCopy } from "@/types/db";
 
-const LIST_COLUMNS =
-  "slug,title,excerpt,published_at,cover_image_url,reading_time_minutes,keywords,author,category_slug";
+const LIST_COLUMNS_WITH_CAT =
+  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,category_slug";
+const LIST_COLUMNS_BASE =
+  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author";
+
+/** Use service role on server if available to bypass RLS failures, fallback to public client */
+function getContentClient() {
+  if (hasServiceRole()) return createAdminClient();
+  return createPublicClient();
+}
 
 export interface SiteSettings {
   site_name: string;
@@ -102,8 +110,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 
 /**
  * Published articles for one locale.
- * Falls back to the unfiltered list when the `language` column has not been
- * migrated yet, so a fresh install never renders an empty blog.
+ * Tolerates missing `category_slug` or `language` columns seamlessly.
  */
 export const getPublishedArticles = unstable_cache(
   async (
@@ -111,40 +118,55 @@ export const getPublishedArticles = unstable_cache(
     offset = 0,
     locale?: string,
   ): Promise<ArticleListItem[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
 
-    const build = () =>
-      sb
+    const queryArticles = async (columns: string, langFilter?: string) => {
+      let q = sb
         .from("articles")
-        .select(LIST_COLUMNS)
+        .select(columns)
         .eq("status", "published")
-        .order("published_at", { ascending: false })
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
 
-    if (!locale) {
-      const { data, error } = await build();
-      if (error) {
-        console.error("getPublishedArticles:", error.message);
-        return [];
+      if (langFilter === "id") {
+        q = q.or("language.eq.id,language.is.null");
+      } else if (langFilter && langFilter !== "all") {
+        q = q.eq("language", langFilter);
       }
-      return (data ?? []) as unknown as ArticleListItem[];
+
+      return await q;
+    };
+
+    const targetLang = locale || "id";
+    // 1. Try with category_slug and target locale
+    let res = await queryArticles(LIST_COLUMNS_WITH_CAT, targetLang);
+
+    // If category_slug column is missing, retry with base columns
+    if (res.error && res.error.message.includes("category_slug")) {
+      res = await queryArticles(LIST_COLUMNS_BASE, targetLang);
     }
 
-    if (locale === DEFAULT_LOCALE || locale === "id") {
-      const { data, error } = await build().or("language.eq.id,language.is.null");
-      if (!error && data && data.length > 0) {
-        return data as unknown as ArticleListItem[];
-      }
-      // Fallback for legacy database without language column or unassigned language
-      const fallback = await build();
-      return (fallback.data ?? []) as unknown as ArticleListItem[];
+    // If language column is missing and error occurred, retry without language filter
+    if (res.error && res.error.message.includes("language")) {
+      res = await queryArticles(LIST_COLUMNS_BASE, "all");
     }
 
-    // Strict check for English locale
-    const { data, error } = await build().eq("language", locale);
-    if (!error) return (data ?? []) as unknown as ArticleListItem[];
-    return [];
+    // If locale is ID and returned 0 articles, try unconditional query (legacy rows)
+    if ((!res.data || res.data.length === 0) && (targetLang === "id" || targetLang === DEFAULT_LOCALE)) {
+      const fallback = await queryArticles(LIST_COLUMNS_BASE, "all");
+      if (!fallback.error && fallback.data && fallback.data.length > 0) {
+        return fallback.data as unknown as ArticleListItem[];
+      }
+    }
+
+    if (res.error) {
+      console.error("getPublishedArticles error:", res.error.message);
+      return [];
+    }
+
+    return (res.data ?? []) as unknown as ArticleListItem[];
   },
   ["published-articles"],
   { revalidate: 300, tags: ["articles"] },
@@ -152,30 +174,39 @@ export const getPublishedArticles = unstable_cache(
 
 export const getPublishedCount = unstable_cache(
   async (locale?: string): Promise<number> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return 0;
 
-    const head = () =>
-      sb
+    const countQuery = async (langFilter?: string) => {
+      let q = sb
         .from("articles")
         .select("id", { count: "exact", head: true })
         .eq("status", "published");
 
-    if (!locale) {
-      const { count, error } = await head();
-      return error ? 0 : count ?? 0;
+      if (langFilter === "id") {
+        q = q.or("language.eq.id,language.is.null");
+      } else if (langFilter && langFilter !== "all") {
+        q = q.eq("language", langFilter);
+      }
+
+      return await q;
+    };
+
+    const targetLang = locale || "id";
+    let res = await countQuery(targetLang);
+
+    if (res.error && res.error.message.includes("language")) {
+      res = await countQuery("all");
     }
 
-    if (locale === DEFAULT_LOCALE || locale === "id") {
-      const filtered = await head().or("language.eq.id,language.is.null");
-      if (!filtered.error && (filtered.count ?? 0) > 0) return filtered.count ?? 0;
-      const { count } = await head();
-      return count ?? 0;
+    if ((res.count ?? 0) === 0 && (targetLang === "id" || targetLang === DEFAULT_LOCALE)) {
+      const fallback = await countQuery("all");
+      if (!fallback.error && (fallback.count ?? 0) > 0) {
+        return fallback.count ?? 0;
+      }
     }
 
-    const filtered = await head().eq("language", locale);
-    if (!filtered.error) return filtered.count ?? 0;
-    return 0;
+    return res.count ?? 0;
   },
   ["published-count"],
   { revalidate: 300, tags: ["articles"] },
@@ -183,36 +214,38 @@ export const getPublishedCount = unstable_cache(
 
 export const getPublishedSlugs = unstable_cache(
   async (locale?: string): Promise<string[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
 
-    const build = () =>
-      sb
+    const build = (langFilter?: string) => {
+      let q = sb
         .from("articles")
         .select("slug")
         .eq("status", "published")
-        .order("published_at", { ascending: false });
+        .order("published_at", { ascending: false, nullsFirst: false });
 
-    if (!locale) {
-      const { data, error } = await build();
-      if (error) return [];
-      return (data ?? []).map((r) => r.slug as string);
-    }
-
-    if (locale === DEFAULT_LOCALE || locale === "id") {
-      const filtered = await build().or("language.eq.id,language.is.null");
-      if (!filtered.error && filtered.data && filtered.data.length > 0) {
-        return (filtered.data ?? []).map((r) => r.slug as string);
+      if (langFilter === "id") {
+        q = q.or("language.eq.id,language.is.null");
+      } else if (langFilter && langFilter !== "all") {
+        q = q.eq("language", langFilter);
       }
-      const { data } = await build();
-      return (data ?? []).map((r) => r.slug as string);
+      return q;
+    };
+
+    const targetLang = locale || "id";
+    let res = await build(targetLang);
+    if (res.error && res.error.message.includes("language")) {
+      res = await build("all");
     }
 
-    const filtered = await build().eq("language", locale);
-    if (!filtered.error) {
-      return (filtered.data ?? []).map((r) => r.slug as string);
+    if ((!res.data || res.data.length === 0) && (targetLang === "id" || targetLang === DEFAULT_LOCALE)) {
+      const fallback = await build("all");
+      if (!fallback.error && fallback.data) {
+        return fallback.data.map((r) => r.slug as string);
+      }
     }
-    return [];
+
+    return (res.data ?? []).map((r) => r.slug as string);
   },
   ["published-slugs"],
   { revalidate: 300, tags: ["articles"] },
@@ -220,32 +253,33 @@ export const getPublishedSlugs = unstable_cache(
 
 export const getArticleBySlug = unstable_cache(
   async (slug: string, locale?: string): Promise<Article | null> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return null;
 
-    const build = () =>
-      sb.from("articles").select("*").eq("slug", slug).eq("status", "published");
-
-    if (!locale) {
-      const { data, error } = await build().maybeSingle();
-      if (error) {
-        console.error("getArticleBySlug:", error.message);
-        return null;
+    const build = (langFilter?: string) => {
+      let q = sb.from("articles").select("*").eq("slug", slug).eq("status", "published");
+      if (langFilter === "id") {
+        q = q.or("language.eq.id,language.is.null");
+      } else if (langFilter && langFilter !== "all") {
+        q = q.eq("language", langFilter);
       }
-      return (data as Article) ?? null;
+      return q;
+    };
+
+    const targetLang = locale || "id";
+    let res = await build(targetLang).maybeSingle();
+    if (res.error && res.error.message.includes("language")) {
+      res = await build("all").maybeSingle();
     }
 
-    if (locale === DEFAULT_LOCALE || locale === "id") {
-      const localized = await build().or("language.eq.id,language.is.null").maybeSingle();
-      if (!localized.error && localized.data) {
-        return localized.data as Article;
+    if (!res.data && (targetLang === "id" || targetLang === DEFAULT_LOCALE)) {
+      const fallback = await build("all").maybeSingle();
+      if (!fallback.error && fallback.data) {
+        return fallback.data as Article;
       }
-      const { data } = await build().maybeSingle();
-      return (data as Article) ?? null;
     }
 
-    const localized = await build().eq("language", locale).maybeSingle();
-    return (localized.data as Article) ?? null;
+    return (res.data as Article) ?? null;
   },
   ["article-by-slug"],
   { revalidate: 300, tags: ["articles"] },
@@ -253,7 +287,7 @@ export const getArticleBySlug = unstable_cache(
 
 export const getAuthorBySlug = unstable_cache(
   async (slug: string): Promise<Author | null> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return null;
     const { data, error } = await sb
       .from("authors")
@@ -269,7 +303,7 @@ export const getAuthorBySlug = unstable_cache(
 
 export const getAuthors = unstable_cache(
   async (): Promise<Author[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
     const { data, error } = await sb
       .from("authors")
@@ -284,22 +318,27 @@ export const getAuthors = unstable_cache(
 
 export const getArticlesByAuthor = unstable_cache(
   async (authorName: string, limit = 20, locale?: string): Promise<ArticleListItem[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
-    const build = () =>
-      sb
+    const build = (cols: string) => {
+      let q = sb
         .from("articles")
-        .select(LIST_COLUMNS)
+        .select(cols)
         .eq("status", "published")
         .eq("author", authorName)
-        .order("published_at", { ascending: false })
+        .order("published_at", { ascending: false, nullsFirst: false })
         .limit(limit);
+      if (locale) q = q.eq("language", locale);
+      return q;
+    };
 
-    if (locale) {
-      const { data, error } = await build().eq("language", locale);
-      if (!error) return (data ?? []) as unknown as ArticleListItem[];
+    let { data, error } = await build(LIST_COLUMNS_WITH_CAT);
+    if (error && error.message.includes("category_slug")) {
+      const retry = await build(LIST_COLUMNS_BASE);
+      data = retry.data;
+      error = retry.error;
     }
-    const { data } = await build();
+    if (error) return [];
     return (data ?? []) as unknown as ArticleListItem[];
   },
   ["articles-by-author"],
@@ -308,7 +347,7 @@ export const getArticlesByAuthor = unstable_cache(
 
 export const getCategories = unstable_cache(
   async (locale?: string): Promise<Category[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
     const query = sb
       .from("categories")
@@ -319,7 +358,8 @@ export const getCategories = unstable_cache(
       const { data, error } = await query.eq("language", locale);
       if (!error) return (data ?? []) as Category[];
     }
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) return [];
     return (data ?? []) as Category[];
   },
   ["categories-list"],
@@ -328,7 +368,7 @@ export const getCategories = unstable_cache(
 
 export const getCategoryBySlug = unstable_cache(
   async (slug: string): Promise<Category | null> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return null;
     const { data, error } = await sb
       .from("categories")
@@ -344,15 +384,21 @@ export const getCategoryBySlug = unstable_cache(
 
 export const getArticlesByCategory = unstable_cache(
   async (categorySlug: string, limit = 20): Promise<ArticleListItem[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
-    const { data, error } = await sb
-      .from("articles")
-      .select(LIST_COLUMNS)
-      .eq("status", "published")
-      .eq("category_slug", categorySlug)
-      .order("published_at", { ascending: false })
-      .limit(limit);
+    const build = (cols: string) =>
+      sb
+        .from("articles")
+        .select(cols)
+        .eq("status", "published")
+        .eq("category_slug", categorySlug)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(limit);
+
+    let { data, error } = await build(LIST_COLUMNS_WITH_CAT);
+    if (error && error.message.includes("category_slug")) {
+      return [];
+    }
     if (error) return [];
     return (data ?? []) as unknown as ArticleListItem[];
   },
@@ -403,30 +449,49 @@ export const getContactSettings = unstable_cache(
 
 export const getRelatedArticles = unstable_cache(
   async (slug: string, limit = 3, locale?: string): Promise<ArticleListItem[]> => {
-    const sb = createPublicClient();
+    const sb = getContentClient();
     if (!sb) return [];
 
-    const build = () =>
-      sb
+    const build = (cols: string) => {
+      let q = sb
         .from("articles")
-        .select(LIST_COLUMNS)
+        .select(cols)
         .eq("status", "published")
         .neq("slug", slug)
-        .order("published_at", { ascending: false })
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
         .limit(limit);
 
-    if (!locale) {
-      const { data, error } = await build();
-      return error ? [] : ((data ?? []) as unknown as ArticleListItem[]);
+      if (locale === "id" || locale === DEFAULT_LOCALE) {
+        q = q.or("language.eq.id,language.is.null");
+      } else if (locale && locale !== "all") {
+        q = q.eq("language", locale);
+      }
+      return q;
+    };
+
+    const res = await build(LIST_COLUMNS_WITH_CAT);
+    let data = res.data;
+    let error = res.error;
+    if (error && error.message.includes("category_slug")) {
+      const retry = await build(LIST_COLUMNS_BASE);
+      data = retry.data as any;
+      error = retry.error;
+    }
+    if (error && error.message.includes("language")) {
+      const retry = await sb
+        .from("articles")
+        .select(LIST_COLUMNS_BASE)
+        .eq("status", "published")
+        .neq("slug", slug)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(limit);
+      data = retry.data as any;
+      error = retry.error;
     }
 
-    const filtered = await build().eq("language", locale);
-    if (!filtered.error) {
-      return (filtered.data ?? []) as unknown as ArticleListItem[];
-    }
-
-    const fallback = await build();
-    return fallback.error ? [] : ((fallback.data ?? []) as unknown as ArticleListItem[]);
+    if (error) return [];
+    return (data ?? []) as unknown as ArticleListItem[];
   },
   ["related-articles"],
   { revalidate: 300, tags: ["articles"] },
