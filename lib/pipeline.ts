@@ -345,30 +345,44 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
     const status: ArticleStatus = settings.auto_publish ? "published" : "draft";
     const now = new Date().toISOString();
 
-    const { data: article, error } = await sb
+    const insertPayload: Record<string, unknown> = {
+      topic_id: topic.id,
+      slug,
+      title: outline.title,
+      excerpt: seo.excerpt || contentMd.slice(0, 200),
+      content_md: contentMd,
+      seo_title: seo.seo_title,
+      seo_description: seo.seo_description,
+      keywords: seo.keywords,
+      author: settings.default_author,
+      status,
+      published_at: status === "published" ? now : null,
+      word_count: words,
+      reading_time_minutes: readingTimeMinutes(words),
+      model: settings.model_writer,
+      embedding,
+      language: settings.language === "en" ? "en" : "id",
+      meta: { primary_keyword: topic.primary_keyword, intent: topic.intent },
+    };
+
+    let { data: article, error } = await sb
       .from("articles")
-      .insert({
-        topic_id: topic.id,
-        slug,
-        title: outline.title,
-        excerpt: seo.excerpt || contentMd.slice(0, 200),
-        content_md: contentMd,
-        seo_title: seo.seo_title,
-        seo_description: seo.seo_description,
-        keywords: seo.keywords,
-        author: settings.default_author,
-        status,
-        published_at: status === "published" ? now : null,
-        word_count: words,
-        reading_time_minutes: readingTimeMinutes(words),
-        model: settings.model_writer,
-        embedding,
-        language: settings.language === "en" ? "en" : "id",
-        meta: { primary_keyword: topic.primary_keyword, intent: topic.intent },
-      })
+      .insert(insertPayload)
       .select("id,slug,title")
       .single();
-    if (error) throw new Error(error.message);
+
+    if (error && error.message.includes("column") && error.message.includes("language")) {
+      delete insertPayload.language;
+      const retry = await sb
+        .from("articles")
+        .insert(insertPayload)
+        .select("id,slug,title")
+        .single();
+      article = retry.data;
+      error = retry.error;
+    }
+
+    if (error || !article) throw new Error(error?.message || "Gagal membuat artikel.");
 
     await sb.from("topics").update({ status: "used" }).eq("id", topic.id);
 

@@ -92,24 +92,34 @@ export async function POST(request: NextRequest) {
   const published_at = status === "published" ? new Date().toISOString() : null;
   const language = body.language === "en" || body.language === "id" ? body.language : "id";
 
-  const { data: created, error } = await sb
+  const rowToInsert: Record<string, unknown> = {
+    title,
+    slug,
+    content_md,
+    excerpt: body.excerpt || null,
+    seo_title: body.seo_title || title,
+    seo_description: body.seo_description || null,
+    author: body.author || "Admin",
+    status,
+    published_at,
+    word_count,
+    reading_time_minutes: reading_time,
+    language,
+  };
+
+  let { data: created, error } = await sb
     .from("articles")
-    .insert({
-      title,
-      slug,
-      content_md,
-      excerpt: body.excerpt || null,
-      seo_title: body.seo_title || title,
-      seo_description: body.seo_description || null,
-      author: body.author || "Admin",
-      status,
-      published_at,
-      word_count,
-      reading_time_minutes: reading_time,
-      language,
-    })
+    .insert(rowToInsert)
     .select("*")
     .single();
+
+  // Tolerance fallback: if database has not executed migration 0004 yet (language column missing)
+  if (error && error.message.includes("column") && error.message.includes("language")) {
+    delete rowToInsert.language;
+    const retry = await sb.from("articles").insert(rowToInsert).select("*").single();
+    created = retry.data;
+    error = retry.error;
+  }
 
   if (error) return jsonError(error.message, 500);
 

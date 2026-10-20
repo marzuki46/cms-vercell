@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import Markdown from "@/components/markdown";
-import { apiSend } from "@/lib/client-api";
+import { useEffect, useState } from "react";
+import VisualHtmlEditor from "@/components/admin/visual-html-editor";
+import AiContentStudio from "@/components/admin/ai-content-studio";
+import { apiGet, apiSend } from "@/lib/client-api";
 import type { Article } from "@/types/db";
 
 export default function NewArticleEditor() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"write" | "ai_studio">("write");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [excerpt, setExcerpt] = useState("");
@@ -18,6 +20,43 @@ export default function NewArticleEditor() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
+
+  // Ambil nama penulis default dari Pengaturan Situs
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await apiGet<{ settings: { default_author?: string | null } }>(
+          "/api/admin/settings",
+        );
+        if (active && res?.settings?.default_author) {
+          setAuthor(res.settings.default_author);
+        }
+      } catch {
+        // Safe fallback
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function handleAcceptAi(data: {
+    title: string;
+    content_md: string;
+    excerpt: string;
+    seo_title: string;
+    seo_description: string;
+  }) {
+    setTitle(data.title);
+    setContent(data.content_md);
+    setExcerpt(data.excerpt);
+    setSeoTitle(data.seo_title);
+    setSeoDesc(data.seo_description);
+    setActiveTab("write");
+    setAiNotice("✓ Konten hasil generate AI berhasil dimasukkan ke formulir! Anda bisa menyuntingnya lebih lanjut, menambahkan thumbnail/gambar, lalu menerbitkannya.");
+  }
 
   async function save(status: "draft" | "published" = "draft") {
     if (!title.trim()) {
@@ -47,7 +86,7 @@ export default function NewArticleEditor() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {/* Header bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-lg border border-[#c3c4c7] shadow-sm">
         <div>
@@ -81,121 +120,161 @@ export default function NewArticleEditor() {
         </div>
       </div>
 
+      {/* Main Tab Switcher: Editor vs AI Content Studio */}
+      <div className="flex items-center gap-2 border-b border-[#c3c4c7] bg-white px-4 pt-3 rounded-t-lg">
+        <button
+          type="button"
+          onClick={() => setActiveTab("write")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold border-b-2 transition ${
+            activeTab === "write"
+              ? "border-[#2271b1] text-[#2271b1]"
+              : "border-transparent text-[#646970] hover:text-[#1d2327]"
+          }`}
+        >
+          <span>✍️</span>
+          <span>Editor Artikel (Visual Word &amp; HTML)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("ai_studio")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold border-b-2 transition ${
+            activeTab === "ai_studio"
+              ? "border-[#008a20] text-[#008a20]"
+              : "border-transparent text-[#646970] hover:text-[#008a20]"
+          }`}
+        >
+          <span>⚡</span>
+          <span>Tool Generate AI &amp; Riset Entitas</span>
+        </button>
+      </div>
+
+      {aiNotice ? (
+        <div className="bg-[#edfaef] border-l-4 border-[#008a20] p-3 text-sm text-[#008a20] flex items-center justify-between">
+          <span>{aiNotice}</span>
+          <button
+            type="button"
+            onClick={() => setAiNotice(null)}
+            className="text-xs text-gray-500 hover:text-black font-bold ml-2"
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="bg-[#fcf0f1] border-l-4 border-[#d63638] p-3 text-sm text-[#3c434a]">
           {error}
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (Editor & Content) */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <div className="bg-white p-5 rounded-lg border border-[#c3c4c7] shadow-sm flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#646970] mb-1">
-                Judul Pos
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Tambahkan judul artikel di sini..."
-                className="w-full text-lg font-bold px-3 py-2 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
-              />
-            </div>
+      {/* Render AI Studio Tool or Standard Form */}
+      {activeTab === "ai_studio" ? (
+        <AiContentStudio
+          onAccept={handleAcceptAi}
+          onCancel={() => setActiveTab("write")}
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column (Editor & Content) */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+            <div className="bg-white p-5 rounded-lg border border-[#c3c4c7] shadow-sm flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#646970] mb-1">
+                  Judul Pos
+                </label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Tambahkan judul artikel di sini..."
+                  className="w-full text-lg font-bold px-3 py-2 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#646970] mb-1">
-                Isi Artikel (Markdown)
-              </label>
-              <textarea
-                rows={16}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Tulis artikel lengkap menggunakan Markdown...
-# Contoh Heading 1
-## Contoh Heading 2
-Paragraf artikel..."
-                className="w-full font-mono text-sm px-3 py-2 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
-              />
-            </div>
-          </div>
-
-          {/* Live Preview */}
-          <div className="bg-white p-5 rounded-lg border border-[#c3c4c7] shadow-sm">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#646970] mb-3">
-              Pratinjau Langsung
-            </h3>
-            <div className="min-h-[120px] max-h-[400px] overflow-auto p-4 bg-[#f6f7f7] border border-[#dcdcde] rounded">
-              {content ? (
-                <Markdown content={content} />
-              ) : (
-                <span className="text-sm text-gray-400 italic">
-                  Belum ada isi konten untuk ditampilkan...
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Sidebar (Settings & SEO) */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-white p-4 rounded-lg border border-[#c3c4c7] shadow-sm flex flex-col gap-3">
-            <h2 className="text-sm font-bold text-[#1d2327] border-b border-[#dcdcde] pb-2">
-              Metadata & Penulis
-            </h2>
-
-            <div>
-              <label className="block text-xs text-[#646970] mb-1">Nama Penulis</label>
-              <input
-                type="text"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-[#646970] mb-1">Ringkasan (Excerpt)</label>
-              <textarea
-                rows={3}
-                value={excerpt}
-                onChange={(e) => setExcerpt(e.target.value)}
-                placeholder="Deskripsi singkat konten..."
-                className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#646970]">
+                    Isi Konten Artikel
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("ai_studio")}
+                    className="text-xs font-bold text-[#2271b1] hover:underline flex items-center gap-1"
+                  >
+                    <span>⚡</span>
+                    <span>Generate otomatis dari Topik / Paragraf</span>
+                  </button>
+                </div>
+                <VisualHtmlEditor
+                  value={content}
+                  onChange={(val) => setContent(val)}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-[#c3c4c7] shadow-sm flex flex-col gap-3">
-            <h2 className="text-sm font-bold text-[#1d2327] border-b border-[#dcdcde] pb-2">
-              Optimasi SEO (Google)
-            </h2>
+          {/* Right Sidebar (Settings & SEO) */}
+          <div className="flex flex-col gap-4">
+            <div className="bg-white p-4 rounded-lg border border-[#c3c4c7] shadow-sm flex flex-col gap-3">
+              <h2 className="text-sm font-bold text-[#1d2327] border-b border-[#dcdcde] pb-2">
+                Metadata &amp; Penulis
+              </h2>
 
-            <div>
-              <label className="block text-xs text-[#646970] mb-1">SEO Title Tag</label>
-              <input
-                type="text"
-                value={seoTitle}
-                onChange={(e) => setSeoTitle(e.target.value)}
-                placeholder="Judul yang tampil di Google..."
-                className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
-              />
+              <div>
+                <label className="block text-xs text-[#646970] mb-1">
+                  Nama Penulis (Default dari Pengaturan)
+                </label>
+                <input
+                  type="text"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-[#646970] mb-1">Ringkasan (Excerpt)</label>
+                <textarea
+                  rows={3}
+                  value={excerpt}
+                  onChange={(e) => setExcerpt(e.target.value)}
+                  placeholder="Deskripsi singkat konten..."
+                  className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs text-[#646970] mb-1">Meta Description</label>
-              <textarea
-                rows={3}
-                value={seoDesc}
-                onChange={(e) => setSeoDesc(e.target.value)}
-                placeholder="Deskripsi meta 120-155 karakter..."
-                className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
-              />
+            <div className="bg-white p-4 rounded-lg border border-[#c3c4c7] shadow-sm flex flex-col gap-3">
+              <h2 className="text-sm font-bold text-[#1d2327] border-b border-[#dcdcde] pb-2">
+                Optimasi SEO (Google)
+              </h2>
+
+              <div>
+                <label className="block text-xs text-[#646970] mb-1">SEO Title Tag</label>
+                <input
+                  type="text"
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                  placeholder="Judul yang tampil di Google..."
+                  className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-[#646970] mb-1">Meta Description</label>
+                <textarea
+                  rows={3}
+                  value={seoDesc}
+                  onChange={(e) => setSeoDesc(e.target.value)}
+                  placeholder="Deskripsi meta 120-155 karakter..."
+                  className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1]"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

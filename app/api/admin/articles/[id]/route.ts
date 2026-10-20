@@ -106,12 +106,26 @@ export async function PATCH(
     return NextResponse.json({ article: current });
   }
 
-  const { data, error } = await sb
+  let { data, error } = await sb
     .from("articles")
     .update(patch)
     .eq("id", id)
     .select("*")
     .single();
+
+  // Tolerance fallback: if database has not executed migration 0004 yet (language column missing)
+  if (error && error.message.includes("column") && error.message.includes("language")) {
+    delete patch.language;
+    const retry = await sb
+      .from("articles")
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
   if (error) return jsonError(error.message, 500);
 
   if (data.status === "published" && body.status === "published") {
