@@ -146,3 +146,32 @@ export async function PATCH(
 
   return NextResponse.json({ article: data });
 }
+
+export async function DELETE(
+  _request: Request,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const guard = await requireAdminApi();
+  if (guard.response) return guard.response;
+
+  const { id } = await ctx.params;
+  const sb = createAdminClient();
+
+  const { data: current } = await sb
+    .from("articles")
+    .select("id,slug,status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!current) return jsonError("Artikel tidak ditemukan.", 404);
+
+  const { error } = await sb.from("articles").delete().eq("id", id);
+  if (error) return jsonError(error.message, 500);
+
+  if (current.status === "published") {
+    revalidateArticle(current.slug);
+  }
+
+  return NextResponse.json({ success: true, id });
+}
+

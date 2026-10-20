@@ -14,6 +14,7 @@ export default function ArticleEditor({ id }: { id: string }) {
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [generatingEn, setGeneratingEn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -81,6 +82,26 @@ export default function ArticleEditor({ id }: { id: string }) {
       setError((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!article || deleting) return;
+    const ok = window.confirm(
+      `Apakah Anda yakin ingin menghapus artikel "${article.title}"?\nTindakan ini permanen dan tidak dapat dibatalkan.`,
+    );
+    if (!ok) return;
+
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await apiSend(`/api/admin/articles/${article.id}`, "DELETE");
+      router.push("/admin/articles");
+    } catch (err) {
+      setError(`Gagal menghapus: ${(err as Error).message}`);
+      setDeleting(false);
     }
   }
 
@@ -195,13 +216,22 @@ export default function ArticleEditor({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => save("draft")}
-                disabled={saving}
+                disabled={saving || deleting}
                 className="rounded-md border border-line px-4 py-2 text-sm font-medium hover:border-accent hover:text-accent disabled:opacity-60"
               >
                 Tarik ke draft
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={saving || deleting}
+            className="rounded-md border border-red-200 bg-red-50 px-3.5 py-2 text-sm font-semibold text-[#d63638] hover:bg-red-100 transition disabled:opacity-60 flex items-center gap-1"
+            title="Hapus permanen artikel ini"
+          >
+            {deleting ? "Menghapus…" : "🗑️ Hapus"}
+          </button>
         </div>
       </div>
 

@@ -88,6 +88,28 @@ export default function ArticlesAdmin() {
     }
   }
 
+  async function handleDelete(row: Row) {
+    if (busyId) return;
+    const ok = window.confirm(
+      `Apakah Anda yakin ingin menghapus artikel "${row.title}"?\nTindakan ini permanen dan tidak dapat dibatalkan.`,
+    );
+    if (!ok) return;
+
+    setBusyId(row.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await apiSend(`/api/admin/articles/${row.id}`, "DELETE");
+      setNotice(`✓ Artikel "${row.title}" berhasil dihapus.`);
+      await refresh();
+    } catch (err) {
+      setError(`Gagal menghapus artikel: ${(err as Error).message}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleTranslate(row: Row) {
     if (translatingId) return;
     setTranslatingId(row.id);
@@ -323,6 +345,15 @@ export default function ArticlesAdmin() {
                               Edit
                             </Link>
                             <span>|</span>
+                            <button
+                              type="button"
+                              disabled={busyId === a.id || isTranslating}
+                              onClick={() => handleDelete(a)}
+                              className="text-[#d63638] hover:underline disabled:opacity-50 font-medium cursor-pointer"
+                            >
+                              Hapus
+                            </button>
+                            <span>|</span>
                             {a.status === "published" ? (
                               <Link
                                 href={`/${lang}/blog/${a.slug}`}
@@ -415,6 +446,15 @@ export default function ArticlesAdmin() {
                             >
                               Edit
                             </Link>
+                            <button
+                              type="button"
+                              disabled={busyId === a.id || isTranslating}
+                              onClick={() => handleDelete(a)}
+                              className="px-2 py-1 bg-red-50 text-[#d63638] border border-red-200 rounded hover:bg-red-100 transition disabled:opacity-50"
+                              title="Hapus permanen artikel"
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </td>
                       </tr>
