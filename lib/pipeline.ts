@@ -363,6 +363,7 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
         reading_time_minutes: readingTimeMinutes(words),
         model: settings.model_writer,
         embedding,
+        language: settings.language === "en" ? "en" : "id",
         meta: { primary_keyword: topic.primary_keyword, intent: topic.intent },
       })
       .select("id,slug,title")
@@ -485,5 +486,4 @@ export async function runPublishDue(): Promise<PublishResult> {
 
   return { published: due.length, slugs };
 }
-
 export { cosineSimilarity };

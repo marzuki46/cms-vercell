@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Markdown from "@/components/markdown";
 import JsonLd from "@/components/jsonld";
-import ArticleCard, { formatDate } from "@/components/article-card";
+import ArticleCard from "@/components/article-card";
 import TableOfContents from "@/components/table-of-contents";
 import WhatsAppChatButton from "@/components/whatsapp/chat-button";
 import {
@@ -15,35 +15,60 @@ import {
 } from "@/lib/content";
 import { extractToc, plainText } from "@/lib/article-seo";
 import { env } from "@/lib/env";
+import {
+  DEFAULT_LOCALE,
+  isLocale,
+  ogLocale,
+  type Locale,
+} from "@/lib/i18n";
 
 export const revalidate = 300;
 
 interface Props {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ locale: string; slug: string }>;
+}
+
+export async function generateStaticParams() {
+  const slugs = await getPublishedSlugs();
+  return ["id", "en"].flatMap((locale) => slugs.map((slug) => ({ locale, slug })));
 }
 
 function baseUrl() {
   return env.siteUrl || "http://localhost:3000";
 }
 
-export async function generateStaticParams() {
+/** Only offer hreflang for languages where this slug actually exists. */
+async function alternatesFor(
+  slug: string,
+  base: string,
+  current: Locale,
+): Promise<Record<string, string> | undefined> {
   const slugs = await getPublishedSlugs();
-  return slugs.map((slug) => ({ slug }));
+  const out: Record<string, string> = {};
+  for (const locale of ["id", "en"] as const) {
+    if (locale !== current && slugs.includes(slug)) {
+      out[locale] = `${base}/${locale}/blog/${slug}`;
+    }
+  }
+  out[current] = `${base}/${current}/blog/${slug}`;
+  out["x-default"] = `${base}/${DEFAULT_LOCALE}/blog/${slug}`;
+  return out;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const [article, site] = await Promise.all([
-    getArticleBySlug(slug),
-    getSiteSettings(),
-  ]);
+  const { slug, locale: raw } = await params;
+  if (!isLocale(raw)) return {};
+  const locale = raw;
+
+  const article = await getArticleBySlug(slug, locale);
   if (!article) return { title: "Artikel tidak ditemukan" };
 
   const base = baseUrl();
-  const url = `${base}/blog/${article.slug}`;
-  const fallbackDescription = plainText(article.content_md ?? "", 155);
+  const url = `${base}/${locale}/blog/${slug}`;
   const description =
-    article.seo_description || article.excerpt || fallbackDescription;
+    article.seo_description ||
+    article.excerpt ||
+    plainText(article.content_md ?? "", 155);
 
   const ogImage = `${base}/api/og?title=${encodeURIComponent(
     (article.seo_title || article.title).slice(0, 110),
@@ -54,14 +79,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     keywords: article.keywords ?? undefined,
     authors: article.author ? [{ name: article.author }] : undefined,
-    alternates: { canonical: url },
+    alternates: {
+      canonical: url,
+      languages: await alternatesFor(slug, base, locale),
+    },
     openGraph: {
       type: "article",
       title: article.seo_title || article.title,
       description,
       url,
-      siteName: site.site_name,
-      locale: site.language === "en" ? "en_US" : "id_ID",
+      siteName: undefined,
+      locale: ogLocale(locale),
       publishedTime: article.published_at ?? undefined,
       modifiedTime: article.updated_at,
       authors: article.author ? [article.author] : undefined,
@@ -78,23 +106,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ArticlePage({ params }: Props) {
-  const { slug } = await params;
+  const { slug, locale: raw } = await params;
+  if (!isLocale(raw)) notFound();
+  const locale = raw;
+
   const [article, site] = await Promise.all([
-    getArticleBySlug(slug),
+    getArticleBySlug(slug, locale),
     getSiteSettings(),
   ]);
   if (!article) notFound();
 
+  const en = locale === "en";
   const base = baseUrl();
-  const url = `${base}/blog/${article.slug}`;
-  const isEn = site.language === "en";
+  const url = `${base}/${locale}/blog/${slug}`;
   const description =
     article.seo_description ||
     article.excerpt ||
     plainText(article.content_md ?? "", 155);
 
   const [related, contact] = await Promise.all([
-    getRelatedArticles(article.slug, 3),
+    getRelatedArticles(slug, 3, locale),
     getContactSettings(),
   ]);
 
@@ -112,7 +143,7 @@ export default async function ArticlePage({ params }: Props) {
         mainEntityOfPage: {
           "@type": "WebPage",
           "@id": url,
-          inLanguage: site.language === "en" ? "en" : "id-ID",
+          inLanguage: en ? "en" : "id-ID",
         },
         url,
         headline: (article.seo_title || article.title).slice(0, 110),
@@ -121,7 +152,7 @@ export default async function ArticlePage({ params }: Props) {
         image: [ogImage],
         datePublished: article.published_at,
         dateModified: article.updated_at,
-        inLanguage: site.language === "en" ? "en" : "id-ID",
+        inLanguage: en ? "en" : "id-ID",
         articleSection: article.keywords?.[0] ?? undefined,
         keywords: article.keywords?.join(", "),
         wordCount: article.word_count ?? undefined,
@@ -129,11 +160,7 @@ export default async function ArticlePage({ params }: Props) {
           ? `PT${article.reading_time_minutes}M`
           : undefined,
         author: article.author
-          ? {
-              "@type": "Person",
-              name: article.author,
-              url: `${base}/blog`,
-            }
+          ? { "@type": "Person", name: article.author }
           : { "@type": "Organization", name: site.site_name },
         publisher: {
           "@type": "Organization",
@@ -142,9 +169,9 @@ export default async function ArticlePage({ params }: Props) {
         },
         isPartOf: {
           "@type": "Blog",
-          "@id": `${base}/blog`,
+          "@id": `${base}/${locale}/blog`,
           name: site.site_name,
-          url: `${base}/blog`,
+          url: `${base}/${locale}/blog`,
         },
       },
       {
@@ -153,21 +180,16 @@ export default async function ArticlePage({ params }: Props) {
           {
             "@type": "ListItem",
             position: 1,
-            name: isEn ? "Home" : "Beranda",
-            item: base,
+            name: en ? "Home" : "Beranda",
+            item: `${base}/${locale}`,
           },
           {
             "@type": "ListItem",
             position: 2,
             name: "Blog",
-            item: `${base}/blog`,
+            item: `${base}/${locale}/blog`,
           },
-          {
-            "@type": "ListItem",
-            position: 3,
-            name: article.title,
-            item: url,
-          },
+          { "@type": "ListItem", position: 3, name: article.title, item: url },
         ],
       },
       {
@@ -175,7 +197,6 @@ export default async function ArticlePage({ params }: Props) {
         "@id": `${base}#website`,
         name: site.site_name,
         url: base,
-        inLanguage: site.language === "en" ? "en" : "id-ID",
       },
     ],
   };
@@ -187,13 +208,13 @@ export default async function ArticlePage({ params }: Props) {
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted">
         <ol className="flex flex-wrap gap-2">
           <li>
-            <Link href="/" className="hover:text-accent">
-              {isEn ? "Home" : "Beranda"}
+            <Link href={`/${locale}`} className="hover:text-accent">
+              {en ? "Home" : "Beranda"}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href="/blog" className="hover:text-accent">
+            <Link href={`/${locale}/blog`} className="hover:text-accent">
               Blog
             </Link>
           </li>
@@ -207,14 +228,12 @@ export default async function ArticlePage({ params }: Props) {
           <header className="mb-8 border-b border-line pb-6">
             <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
               <time dateTime={article.published_at ?? undefined}>
-                {formatDate(article.published_at)}
+                {formatDate(article.published_at, locale)}
               </time>
               {article.reading_time_minutes ? (
-                <span>· {article.reading_time_minutes} menit baca</span>
+                <span>· {article.reading_time_minutes} min read</span>
               ) : null}
-              {article.word_count ? (
-                <span>· {article.word_count} kata</span>
-              ) : null}
+              {article.word_count ? <span>· {article.word_count} words</span> : null}
               {article.author ? <span>· {article.author}</span> : null}
             </div>
             <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
@@ -242,7 +261,7 @@ export default async function ArticlePage({ params }: Props) {
           {toc.length >= 3 ? (
             <details className="mb-8 rounded-lg border border-line bg-surface p-4 lg:hidden">
               <summary className="cursor-pointer text-sm font-semibold text-foreground">
-                {isEn ? "Table of contents" : "Daftar Isi"}
+                {en ? "Table of contents" : "Daftar Isi"}
               </summary>
               <div className="mt-3">
                 <TableOfContents items={toc} variant="inline" />
@@ -255,11 +274,11 @@ export default async function ArticlePage({ params }: Props) {
           {related.length > 0 ? (
             <section className="mt-14 border-t border-line pt-8">
               <h2 className="mb-6 text-xl font-semibold tracking-tight">
-                {isEn ? "Related articles" : "Artikel terkait"}
+                {en ? "Related articles" : "Artikel terkait"}
               </h2>
               <div className="flex flex-col gap-6">
                 {related.map((a) => (
-                  <ArticleCard key={a.slug} article={a} />
+                  <ArticleCard key={a.slug} article={a} locale={locale} />
                 ))}
               </div>
             </section>
@@ -270,7 +289,7 @@ export default async function ArticlePage({ params }: Props) {
           <aside className="hidden lg:block">
             <div className="sticky top-24">
               <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted">
-                {isEn ? "Contents" : "Daftar Isi"}
+                {en ? "Contents" : "Daftar Isi"}
               </h2>
               <TableOfContents items={toc} />
             </div>
@@ -282,8 +301,21 @@ export default async function ArticlePage({ params }: Props) {
         number={contact.whatsapp_number}
         message={contact.whatsapp_message}
         slug={article.slug}
-        label={isEn ? "Ask via WhatsApp" : "Tanya via WhatsApp"}
+        label={en ? "Ask via WhatsApp" : "Tanya via WhatsApp"}
       />
     </div>
   );
+}
+
+function formatDate(value: string | null, locale: string) {
+  if (!value) return "";
+  try {
+    return new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(value));
+  } catch {
+    return "";
+  }
 }

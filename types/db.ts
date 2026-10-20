@@ -51,6 +51,7 @@ export interface Article {
   seo_description: string | null;
   keywords: string[] | null;
   author: string | null;
+  language?: "id" | "en";
   status: ArticleStatus;
   published_at: string | null;
   scheduled_for: string | null;

@@ -10,6 +10,7 @@ interface Row {
   slug: string;
   title: string;
   status: ArticleStatus;
+  language?: "id" | "en";
   published_at: string | null;
   scheduled_for: string | null;
   word_count: number | null;
@@ -165,7 +166,7 @@ export default function ArticlesAdmin() {
                         <span>|</span>
                         {a.status === "published" ? (
                           <Link
-                            href={`/blog/${a.slug}`}
+                            href={`/${a.language ?? "id"}/blog/${a.slug}`}
                             target="_blank"
                             className="text-[#008a20] hover:underline"
                           >

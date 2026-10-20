@@ -2,10 +2,14 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 const PUBLIC_PATHS = [
   "/",
-  "/blog",
-  "/blog/page/1",
-  "/about",
-  "/contact",
+  "/id",
+  "/en",
+  "/id/blog",
+  "/en/blog",
+  "/id/about",
+  "/en/about",
+  "/id/contact",
+  "/en/contact",
   "/sitemap.xml",
   "/rss.xml",
   "/api/og",
@@ -23,8 +27,12 @@ export function revalidateArticles(slug?: string) {
   safeTag("articles");
   safeTag("settings");
   for (const path of PUBLIC_PATHS) safePath(path);
-  if (slug) safePath(`/blog/${slug}`);
-  safePath("/blog/page/2");
+  if (slug) {
+    safePath(`/id/blog/${slug}`);
+    safePath(`/en/blog/${slug}`);
+  }
+  safePath("/id/blog/page/2");
+  safePath("/en/blog/page/2");
 }
 
 export function revalidateSettings() {
@@ -36,8 +44,10 @@ export function revalidateSettings() {
 /** Rebuild every blog pagination page after an insert/delete. */
 export function revalidatePagination(totalPages: number) {
   safeTag("articles");
-  for (let i = 2; i <= Math.max(totalPages, 2); i++) {
-    safePath(`/blog/page/${i}`);
+  for (const locale of ["id", "en"]) {
+    for (let i = 2; i <= Math.max(totalPages, 2); i++) {
+      safePath(`/${locale}/blog/page/${i}`);
+    }
   }
 }
 

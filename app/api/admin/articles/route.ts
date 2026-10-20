@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   let query = sb
     .from("articles")
     .select(
-      "id,slug,title,status,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id",
+      "id,slug,title,status,language,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id",
       { count: "exact" },
     )
     .order("created_at", { ascending: false })
@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     seo_description?: string;
     author?: string;
     status?: ArticleStatus;
+    language?: string;
   };
 
   try {
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
 
   const status: ArticleStatus = body.status && STATUSES.includes(body.status) ? body.status : "draft";
   const published_at = status === "published" ? new Date().toISOString() : null;
+  const language = body.language === "en" || body.language === "id" ? body.language : "id";
 
   const { data: created, error } = await sb
     .from("articles")
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
       published_at,
       word_count,
       reading_time_minutes: reading_time,
+      language,
     })
     .select("*")
     .single();

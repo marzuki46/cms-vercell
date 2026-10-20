@@ -41,7 +41,7 @@ alter table public.settings add column if not exists whatsapp_number text;
 alter table public.settings add column if not exists whatsapp_message text;
 
 insert into public.settings (singleton, site_name, niche, audience)
-values (true, 'Portal Konten SEO', 'Umum & Bisnis', 'Masyarakat Umum')
+values (true, 'Situs Anda', 'Umum & Bisnis', 'Masyarakat Umum')
 on conflict do nothing;
 
 create table if not exists public.topics (
@@ -79,12 +79,16 @@ create table if not exists public.articles (
   model text,
   embedding jsonb,
   meta jsonb,
+  language text not null default 'id',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+alter table public.articles add column if not exists language text not null default 'id';
+
 create index if not exists articles_status_published_idx on public.articles (status, published_at desc);
 create index if not exists articles_scheduled_idx on public.articles (status, scheduled_for);
+create index if not exists articles_lang_published_idx on public.articles (language, status, published_at desc);
 
 create table if not exists public.generation_jobs (
   id uuid primary key default gen_random_uuid(),
@@ -130,6 +134,51 @@ alter table public.whatsapp_leads enable row level security;
 drop policy if exists "articles_public_read_published" on public.articles;
 create policy "articles_public_read_published" on public.articles
   for select to anon using (status = 'published');
+
+-- ---------------------------------------------------------------------------
+-- Redirects permanen (otomatis saat slug artikel berubah)
+-- ---------------------------------------------------------------------------
+create table if not exists public.redirects (
+  id uuid primary key default gen_random_uuid(),
+  from_path text not null unique,
+  to_path text not null,
+  status_code integer not null default 301,
+  hits integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists redirects_from_idx on public.redirects (from_path);
+
+alter table public.redirects enable row level security;
+
+drop policy if exists "redirects_public_read" on public.redirects;
+create policy "redirects_public_read" on public.redirects
+  for select to anon, authenticated using (true);
+
+create or replace function public.register_article_slug_redirect()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE' and old.slug is distinct from new.slug then
+    insert into public.redirects (from_path, to_path, status_code)
+    values ('/blog/' || old.slug, '/blog/' || new.slug, 301)
+    on conflict (from_path) do update
+      set to_path = excluded.to_path,
+          status_code = excluded.status_code;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists articles_slug_redirect on public.articles;
+create trigger articles_slug_redirect
+  after update of slug on public.articles
+  for each row execute function public.register_article_slug_redirect();
+
+notify pgrst, 'reload schema';
 `;
 
 export async function POST() {

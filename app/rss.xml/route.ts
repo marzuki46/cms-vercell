@@ -15,17 +15,32 @@ function escapeXml(value: string) {
 
 export async function GET() {
   const site = await getSiteSettings();
-  const articles = await getPublishedArticles(50);
   const base = env.siteUrl || "http://localhost:3000";
 
-  const items = articles
+  const [idArticles, enArticles] = await Promise.all([
+    getPublishedArticles(50, 0, "id"),
+    getPublishedArticles(50, 0, "en"),
+  ]);
+
+  const seen = new Set<string>();
+  const items = [...idArticles, ...enArticles]
+    .filter((a) => {
+      const key = `${a.slug}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .map((a) => {
-      const url = `${base}/blog/${a.slug}`;
+      const language = idArticles.includes(a) ? "id" : "en";
+      const url = `${base}/${language}/blog/${a.slug}`;
       const description = escapeXml(a.excerpt ?? a.title);
       const date = a.published_at
         ? new Date(a.published_at).toUTCString()
         : new Date().toUTCString();
-      const author = a.author ? `<dc:creator>${escapeXml(a.author)}</dc:creator>` : "";
+      const author = a.author
+        ? `      <dc:creator>${escapeXml(a.author)}</dc:creator>`
+        : "";
+
       return [
         "    <item>",
         `      <title>${escapeXml(a.title)}</title>`,
@@ -33,6 +48,7 @@ export async function GET() {
         `      <guid isPermaLink="true">${url}</guid>`,
         `      <description>${description}</description>`,
         `      <pubDate>${date}</pubDate>`,
+        `      <category>${language}</category>`,
         author,
         "    </item>",
       ]
@@ -45,7 +61,8 @@ export async function GET() {
 <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>${escapeXml(site.site_name)}</title>
-    <link>${base}</link>
+    <link>${base}/id</link>
+    <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="${base}/rss.xml" rel="self" type="application/rss+xml"/>
     <description>${escapeXml(site.site_name)} — artikel dan panduan terbaru.</description>
     <language>id</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>

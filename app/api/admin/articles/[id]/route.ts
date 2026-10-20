@@ -43,6 +43,7 @@ interface PatchBody {
   seo_title?: string;
   seo_description?: string;
   author?: string;
+  language?: string;
 }
 
 function revalidateArticle(slug: string) {
@@ -86,6 +87,7 @@ export async function PATCH(
     }
   }
   if (body.scheduled_for !== undefined) patch.scheduled_for = body.scheduled_for;
+  if (body.language === "en" || body.language === "id") patch.language = body.language;
   if (typeof body.title === "string" && body.title.trim())
     patch.title = body.title.trim();
   if (typeof body.excerpt === "string") patch.excerpt = body.excerpt;
