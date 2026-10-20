@@ -1,10 +1,11 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ArticleCard from "@/components/article-card";
 import WhatsAppChatButton from "@/components/whatsapp/chat-button";
 import JsonLd from "@/components/jsonld";
 import { env } from "@/lib/env";
-import { isLocale, type Locale } from "@/lib/i18n";
+import { DEFAULT_LOCALE, isLocale, ogLocale, type Locale } from "@/lib/i18n";
 import {
   getPublishedArticles,
   getPublishedCount,
@@ -16,6 +17,66 @@ export const revalidate = 300;
 
 interface Props {
   params: Promise<{ locale: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale: raw } = await params;
+  if (!isLocale(raw)) return {};
+  const locale = raw;
+  const site = await getSiteSettings();
+  const base = env.siteUrl || "http://localhost:3000";
+  const custom = site.home_copy?.[locale];
+
+  const title =
+    custom?.meta_title ||
+    (locale === "en"
+      ? `Insights & Comprehensive Guides · ${site.site_name}`
+      : `Informasi Terpercaya & Panduan Mendalam · ${site.site_name}`);
+
+  const description =
+    custom?.meta_description ||
+    (locale === "en"
+      ? `Welcome to ${site.site_name}. Explore data-driven articles, verified recommendations, and strategic analyses.`
+      : `Selamat datang di ${site.site_name}. Temukan artikel terpercaya, panduan mendalam, dan informasi terbaru.`);
+
+  const ogImage = `${base}/api/og?title=${encodeURIComponent(
+    custom?.meta_title || site.site_name,
+  )}&excerpt=${encodeURIComponent(description.slice(0, 150))}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${base}/${locale}`,
+      languages: {
+        id: `${base}/id`,
+        en: `${base}/en`,
+        "x-default": `${base}/${DEFAULT_LOCALE}`,
+      },
+    },
+    openGraph: {
+      type: "website",
+      siteName: site.site_name,
+      title,
+      description,
+      url: `${base}/${locale}`,
+      locale: ogLocale(locale),
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
 }
 
 export default async function Home({ params }: Props) {

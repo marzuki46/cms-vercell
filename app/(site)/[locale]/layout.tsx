@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SiteHeader from "@/components/site-header";
 import WhatsAppChatButton from "@/components/whatsapp/chat-button";
 import { getContactSettings, getSiteSettings } from "@/lib/content";
 import { env } from "@/lib/env";
@@ -106,56 +107,14 @@ export default async function SiteLayout({ children, params }: Props & { childre
         {t.notFound === "Page not found." ? "Skip to content" : "Lompat ke konten"}
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-line bg-background/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-4">
-          <Link
-            href={`/${locale}`}
-            className="flex items-center gap-2 text-lg font-bold tracking-tight transition hover:text-accent"
-          >
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent" />
-            <span>{site.site_name}</span>
-          </Link>
-
-          <div className="flex items-center gap-5">
-            <nav className="flex items-center gap-5 text-sm font-medium text-muted">
-              <Link href={`/${locale}`} className="transition hover:text-foreground">
-                {t.nav.home}
-              </Link>
-              <Link href={`/${locale}/blog`} className="transition hover:text-foreground">
-                {t.nav.blog}
-              </Link>
-              <Link href={`/${locale}/about`} className="transition hover:text-foreground">
-                {t.nav.about}
-              </Link>
-              <Link href={`/${locale}/contact`} className="transition hover:text-foreground">
-                {t.nav.contact}
-              </Link>
-            </nav>
-
-            <div
-              className="flex items-center rounded-full border border-line text-xs font-semibold"
-              role="group"
-              aria-label="Language"
-            >
-              {SUPPORTED_LOCALES.map((l) => (
-                <Link
-                  key={l}
-                  href={`/${l}`}
-                  hrefLang={htmlLang(l)}
-                  aria-current={l === locale ? "true" : undefined}
-                  className={`rounded-full px-2.5 py-1 uppercase transition ${
-                    l === locale
-                      ? "bg-accent text-accent-fg"
-                      : "text-muted hover:text-foreground"
-                  }`}
-                >
-                  {l}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        siteName={site.site_name}
+        locale={locale}
+        navLabels={t.nav}
+        whatsappNumber={contact.whatsapp_number}
+        whatsappMessage={contact.whatsapp_message}
+        whatsappBtnLabel={locale === "en" ? "Chat via WhatsApp" : "Konsultasi WhatsApp"}
+      />
 
       <main id="main" className="flex-1">
         {children}

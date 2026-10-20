@@ -329,6 +329,58 @@ export default function SettingsForm() {
               </div>
             </div>
 
+            {/* Section 0: Home SEO (Meta Title & Meta Description) */}
+            <div className="bg-[#f0f6fc] p-4 rounded-lg border border-[#2271b1]/30 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔍</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+                  0. Pengaturan SEO Beranda (Meta Title &amp; Description di Google)
+                </span>
+              </div>
+              <p className="text-xs text-[#50575e]">
+                {homeCopyLang === "id"
+                  ? "Teks ini yang akan tampil di hasil pencarian Google dan tab browser untuk halaman https://masboss.vercel.app/id"
+                  : "This text will appear in Google search engine snippets and browser tabs for https://masboss.vercel.app/en"}
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>Meta Title Beranda</span>
+                  <input
+                    value={getCopyField("meta_title")}
+                    onChange={(e) => setCopyField("meta_title", e.target.value)}
+                    placeholder={
+                      homeCopyLang === "id"
+                        ? "Dealer Resmi Motor Honda Solo - Promo DP Ringan & Angsuran Termurah"
+                        : "Official Honda Dealer Solo - Best Discounts & Flexible Financing"
+                    }
+                    className={FIELD}
+                  />
+                  <span className="text-[11px] text-[#646970]">
+                    Rekomendasi panjang: 50–60 karakter. Karakter saat ini: {getCopyField("meta_title").length}
+                  </span>
+                </label>
+
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>Meta Description Beranda</span>
+                  <textarea
+                    rows={2}
+                    value={getCopyField("meta_description")}
+                    onChange={(e) => setCopyField("meta_description", e.target.value)}
+                    placeholder={
+                      homeCopyLang === "id"
+                        ? "Pusat informasi promo motor Honda Solo terbaru, simulasi kredit DP minim, diskon cash, dan layanan sales resmi terpercaya."
+                        : "Official information hub for exclusive Honda motorcycle promotions, credit simulations, and direct certified sales consultants in Solo."
+                    }
+                    className={FIELD}
+                  />
+                  <span className="text-[11px] text-[#646970]">
+                    Rekomendasi panjang: 120–160 karakter. Karakter saat ini: {getCopyField("meta_description").length}
+                  </span>
+                </label>
+              </div>
+            </div>
+
             {/* Section 1: Hero Section */}
             <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
               <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">

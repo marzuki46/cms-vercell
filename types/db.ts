@@ -5,6 +5,8 @@ export type JobType = "brainstorm" | "generate" | "publish";
 export type LeadStatus = "new" | "contacted" | "closed";
 
 export interface HomeCopyLocale {
+  meta_title?: string;
+  meta_description?: string;
   hero_badge?: string;
   hero_title?: string;
   hero_subtitle?: string;

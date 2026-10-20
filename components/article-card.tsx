@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import type { ArticleListItem } from "@/types/db";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
+import { getCoverImageUrl } from "@/lib/cover";
 
 export function formatDate(value: string | null | undefined) {
   if (!value) return "";
@@ -35,9 +36,26 @@ export default function ArticleCard({
 }) {
   const en = locale === "en";
   const href = `/${locale}/blog/${article.slug}`;
+  const coverUrl = getCoverImageUrl({
+    title: article.title,
+    topic: article.keywords?.[0],
+    coverImageUrl: article.cover_image_url,
+  });
 
   return (
-    <article className="flex flex-col gap-2 border-b border-line pb-6">
+    <article className="group flex flex-col gap-3 rounded-2xl border border-line bg-card p-4 transition-all duration-200 hover:border-accent/40 hover:shadow-md">
+      {/* Cover Image with Title on Image */}
+      <Link href={href} className="overflow-hidden rounded-xl bg-muted/20 block aspect-[16/9] relative">
+        <img
+          src={coverUrl}
+          alt={article.title}
+          title={article.title}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </Link>
+
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <time dateTime={article.published_at ?? undefined}>
           {localeDate(article.published_at, locale)}
@@ -50,22 +68,25 @@ export default function ArticleCard({
         {article.author ? <span>· {article.author}</span> : null}
       </div>
 
-      <h3 className="text-lg font-semibold leading-snug tracking-tight">
-        <Link href={href} className="hover:text-accent">
+      <h3 className="text-base sm:text-lg font-bold leading-snug tracking-tight text-foreground">
+        <Link href={href} className="transition hover:text-accent">
           {article.title}
         </Link>
       </h3>
 
       {article.excerpt ? (
-        <p className="text-sm leading-relaxed text-muted">{article.excerpt}</p>
+        <p className="line-clamp-2 text-xs sm:text-sm leading-relaxed text-muted">{article.excerpt}</p>
       ) : null}
 
-      <Link
-        href={href}
-        className="text-sm font-medium text-accent hover:underline"
-      >
-        {en ? "Read more →" : "Baca selengkapnya →"}
-      </Link>
+      <div className="mt-auto pt-2">
+        <Link
+          href={href}
+          className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-accent hover:underline"
+        >
+          <span>{en ? "Read more" : "Baca selengkapnya"}</span>
+          <span aria-hidden="true">→</span>
+        </Link>
+      </div>
     </article>
   );
 }

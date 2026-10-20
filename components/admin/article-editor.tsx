@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import VisualHtmlEditor from "@/components/admin/visual-html-editor";
 import SeoChecklist from "@/components/admin/seo-checklist";
 import { apiGet, apiSend } from "@/lib/client-api";
+import { getCoverImageUrl } from "@/lib/cover";
 import type { Article } from "@/types/db";
 
 export default function ArticleEditor({ id }: { id: string }) {
@@ -58,6 +59,7 @@ export default function ArticleEditor({ id }: { id: string }) {
         author: article.author ?? "",
         content_md: article.content_md ?? "",
         language: article.language ?? "id",
+        cover_image_url: article.cover_image_url ?? null,
       };
       if (status) body.status = status;
       const res = await apiSend<{ article: Article }>(
@@ -283,6 +285,47 @@ export default function ArticleEditor({ id }: { id: string }) {
             className="resize-y rounded border border-[#8c8f94] bg-white text-[#1d2327] px-3 py-2 outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
           />
         </label>
+
+        {/* Dynamic Featured Image Box */}
+        <div className="rounded-lg border border-[#dcdcde] bg-[#f8fafc] p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+              🖼️ Gambar Utama Konten (Auto-Cover WebP)
+            </span>
+            <span className="text-[11px] text-[#008a20] font-semibold bg-[#edfaef] px-2 py-0.5 rounded">
+              ✓ Alt, Title &amp; Deskripsi Otomatis Sesuai Judul
+            </span>
+          </div>
+
+          <div className="grid sm:grid-cols-[220px_minmax(0,1fr)] gap-4 items-center">
+            <div className="aspect-[16/9] rounded-lg overflow-hidden border border-[#c3c4c7] bg-slate-900 shadow-inner">
+              <img
+                src={getCoverImageUrl({
+                  title: article.title,
+                  topic: article.keywords?.[0],
+                  coverImageUrl: article.cover_image_url,
+                })}
+                alt={article.title}
+                title={article.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex flex-col gap-2 text-xs text-[#50575e]">
+              <p>
+                Visual banner di atas otomatis di-generate dengan judul artikel dan topik. Saat diakses di web, Next.js otomatis menyajikan dalam format <strong>WebP</strong> berkecepatan tinggi.
+              </p>
+              <label className="flex flex-col gap-1 mt-1">
+                <span className="font-semibold text-[#1d2327]">URL Gambar Kustom (Opsional Override):</span>
+                <input
+                  value={article.cover_image_url ?? ""}
+                  onChange={(e) => update("cover_image_url", e.target.value || null)}
+                  placeholder="Kosongkan untuk memakai gambar banner otomatis bawaan"
+                  className="rounded border border-[#8c8f94] bg-white text-[#1d2327] px-2.5 py-1.5 text-xs outline-none focus:border-[#2271b1]"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">

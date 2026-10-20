@@ -21,6 +21,7 @@ import {
   ogLocale,
   type Locale,
 } from "@/lib/i18n";
+import { getCoverImageUrl } from "@/lib/cover";
 
 export const revalidate = 300;
 
@@ -80,9 +81,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     article.excerpt ||
     plainText(article.content_md ?? "", 155);
 
-  const ogImage = `${base}/api/og?title=${encodeURIComponent(
-    (article.seo_title || article.title).slice(0, 110),
-  )}&excerpt=${encodeURIComponent((article.excerpt ?? "").slice(0, 160))}`;
+  const coverUrl = getCoverImageUrl({
+    title: article.title,
+    topic: article.keywords?.[0],
+    coverImageUrl: article.cover_image_url,
+  });
+  const fullCoverUrl = coverUrl.startsWith("http") ? coverUrl : `${base}${coverUrl}`;
 
   return {
     title: article.seo_title || article.title,
@@ -104,13 +108,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       modifiedTime: article.updated_at,
       authors: article.author ? [article.author] : undefined,
       tags: article.keywords ?? undefined,
-      images: [{ url: ogImage, width: 1200, height: 630, alt: article.title }],
+      images: [{ url: fullCoverUrl, width: 1200, height: 630, alt: article.title }],
     },
     twitter: {
       card: "summary_large_image",
       title: article.seo_title || article.title,
       description,
-      images: [ogImage],
+      images: [fullCoverUrl],
     },
   };
 }
@@ -290,6 +294,27 @@ export default async function ArticlePage({ params }: Props) {
               </ul>
             ) : null}
           </header>
+
+          {/* Featured Content Visual Cover (Auto alt, title, and topic banner) */}
+          <figure className="mb-8 overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
+            <img
+              src={getCoverImageUrl({
+                title: article.title,
+                topic: article.keywords?.[0],
+                coverImageUrl: article.cover_image_url,
+                siteName: site.site_name,
+              })}
+              alt={article.title}
+              title={article.title}
+              loading="eager"
+              decoding="async"
+              className="aspect-[16/9] w-full object-cover transition-opacity duration-300"
+            />
+            <figcaption className="border-t border-line/60 bg-muted/5 px-4 py-2.5 text-center text-xs text-muted">
+              <span className="font-medium text-foreground">{article.title}</span>
+              {article.excerpt ? ` — ${article.excerpt.slice(0, 120)}` : ""}
+            </figcaption>
+          </figure>
 
           {toc.length >= 3 ? (
             <details className="mb-8 rounded-lg border border-line bg-surface p-4 lg:hidden">
