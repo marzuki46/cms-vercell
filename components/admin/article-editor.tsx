@@ -109,10 +109,10 @@ export default function ArticleEditor({ id }: { id: string }) {
           seo_title: res.result.seo_title,
           seo_description: res.result.seo_description,
           language: "en",
-          status: article.status,
+          status: "draft",
           author: article.author || "Admin",
         });
-        setNotice("✓ Versi English berhasil dibuat! Mengalihkan ke editor artikel EN...");
+        setNotice("✓ Versi English berhasil dibuat sebagai Draft! Mengalihkan ke editor artikel EN...");
         router.push(`/admin/articles/${created.article.id}`);
       }
     } catch (err) {

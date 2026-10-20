@@ -213,6 +213,53 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
     }
   }
 
+  async function handlePublishIdOnly() {
+    if (!idData) return;
+    if (!confirm("Terbitkan artikel versi Indonesia (ID) sekarang? (Versi EN jika ada akan disimpan sebagai Draft)")) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Simpan dan terbitkan artikel ID
+      const resId = await apiSend<{ article: { id: string; slug: string } }>("/api/admin/articles", "POST", {
+        title: idData.title,
+        slug: idData.slug || toSlug(idData.title, 5),
+        content_md: idData.content_md,
+        excerpt: idData.excerpt,
+        seo_title: idData.seo_title,
+        seo_description: idData.seo_description,
+        language: "id",
+        status: "published",
+      });
+
+      // 2. Jika ada versi EN, simpan sebagai DRAFT
+      let hasEnDraft = false;
+      if (enData) {
+        await apiSend<{ article: { id: string; slug: string } }>("/api/admin/articles", "POST", {
+          title: enData.title,
+          slug: enData.slug || toSlug(enData.title, 5),
+          content_md: enData.content_md,
+          excerpt: enData.excerpt,
+          seo_title: enData.seo_title,
+          seo_description: enData.seo_description,
+          language: "en",
+          status: "draft",
+        });
+        hasEnDraft = true;
+      }
+
+      setDualPublishSuccess(
+        hasEnDraft
+          ? `✓ Sukses! Artikel Indonesia (ID) telah DITERBITKAN secara publik!\n🇮🇩 URL Tayang: /id/blog/${resId.article.slug}\n🇬🇧 Versi English tersimpan aman sebagai DRAFT di admin.`
+          : `✓ Sukses! Artikel Indonesia (ID) telah DITERBITKAN secara publik!\n🇮🇩 URL Tayang: /id/blog/${resId.article.slug}`,
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handlePublishBoth() {
     if (!idData || !enData) return;
     if (!confirm("Terbitkan langsung kedua artikel (ID dan EN) sekarang?")) return;
@@ -535,15 +582,15 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
                 🔄 Buat Ulang
               </button>
 
-              {idData && enData ? (
+              {idData ? (
                 <button
                   type="button"
-                  onClick={handlePublishBoth}
+                  onClick={handlePublishIdOnly}
                   disabled={loading}
-                  className="px-4 py-1.5 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1"
+                  className="px-4 py-1.5 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1.5"
                 >
                   <span>🚀</span>
-                  <span>Terbitkan Sekaligus (ID + EN)</span>
+                  <span>Terbitkan Versi ID (Auto-Publish ID)</span>
                 </button>
               ) : null}
             </div>
@@ -599,17 +646,43 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
                       {translatingEn ? "Sedang Menerjemahkan ke EN…" : "🌐 Lanjut Generate ke Bahasa EN"}
                     </button>
                   )}
+                  {enData && (
+                    <span className="text-xs text-[#007017] font-semibold bg-[#e7f5ea] px-2.5 py-1 rounded border border-[#c3e6cb]">
+                      ✓ Versi EN siap (disimpan sebagai Draft saat publish)
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {idData && (
+                    <button
+                      type="button"
+                      onClick={handlePublishIdOnly}
+                      disabled={loading}
+                      className="px-5 py-2 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1.5"
+                    >
+                      <span>🚀</span>
+                      <span>Terbitkan Versi ID (Auto-Publish)</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => onAccept(activeData, viewLang)}
-                    className="px-5 py-2 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1.5"
+                    onClick={() => onAccept(idData!, "id")}
+                    className="px-3.5 py-2 text-xs font-semibold bg-white border border-[#2271b1] text-[#2271b1] hover:bg-[#f0f7ff] rounded transition flex items-center gap-1"
                   >
-                    <span>✓</span>
-                    <span>ACC &amp; Masukkan Versi {viewLang.toUpperCase()} ke Editor</span>
+                    <span>Edit Versi ID di Form</span>
                   </button>
+
+                  {enData && (
+                    <button
+                      type="button"
+                      onClick={() => onAccept(enData, "en")}
+                      className="px-3.5 py-2 text-xs font-semibold bg-white border border-[#8c8f94] text-[#1d2327] hover:bg-[#f0f0f1] rounded transition flex items-center gap-1"
+                    >
+                      <span>Edit Versi EN di Form</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

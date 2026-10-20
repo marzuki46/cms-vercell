@@ -361,7 +361,7 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
       reading_time_minutes: readingTimeMinutes(words),
       model: settings.model_writer,
       embedding,
-      language: settings.language === "en" ? "en" : "id",
+      language: "id",
       meta: { primary_keyword: topic.primary_keyword, intent: topic.intent },
     };
 
