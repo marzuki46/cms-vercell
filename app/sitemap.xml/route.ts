@@ -1,0 +1,196 @@
+import { NextResponse } from "next/server";
+import {
+  getPublishedArticles,
+  getPublishedCount,
+  BLOG_PER_PAGE,
+} from "@/lib/sitemap-data";
+import { env } from "@/lib/env";
+import { SUPPORTED_LOCALES } from "@/lib/i18n";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 3600;
+
+function baseUrl() {
+  return env.siteUrl || "http://localhost:3000";
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+interface SitemapEntry {
+  url: string;
+  lastmod: string;
+  changefreq?: string;
+  priority?: number;
+  alternates?: Record<string, string>;
+}
+
+export async function GET() {
+  const base = baseUrl();
+  const [articlesByLocale, totalsByLocale] = await Promise.all([
+    Promise.all(SUPPORTED_LOCALES.map((locale) => getPublishedArticles(locale))),
+    Promise.all(SUPPORTED_LOCALES.map((locale) => getPublishedCount(locale))),
+  ]);
+
+  const now = new Date().toISOString();
+  const entries: SitemapEntry[] = [];
+
+  // 1. Root & static pages per locale
+  SUPPORTED_LOCALES.forEach((locale) => {
+    const localeAlternates: Record<string, string> = {
+      ...Object.fromEntries(SUPPORTED_LOCALES.map((l) => [l, `${base}/${l}`])),
+      "x-default": `${base}/id`,
+    };
+
+    const blogAlternates: Record<string, string> = {
+      ...Object.fromEntries(SUPPORTED_LOCALES.map((l) => [l, `${base}/${l}/blog`])),
+      "x-default": `${base}/id/blog`,
+    };
+
+    entries.push(
+      {
+        url: `${base}/${locale}`,
+        lastmod: now,
+        changefreq: "daily",
+        priority: 1.0,
+        alternates: localeAlternates,
+      },
+      {
+        url: `${base}/${locale}/blog`,
+        lastmod: now,
+        changefreq: "daily",
+        priority: 0.9,
+        alternates: blogAlternates,
+      },
+      {
+        url: `${base}/${locale}/about`,
+        lastmod: now,
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        url: `${base}/${locale}/contact`,
+        lastmod: now,
+        changefreq: "monthly",
+        priority: 0.5,
+      },
+      {
+        url: `${base}/${locale}/author/admin`,
+        lastmod: now,
+        changefreq: "weekly",
+        priority: 0.6,
+      },
+      {
+        url: `${base}/${locale}/category/panduan`,
+        lastmod: now,
+        changefreq: "weekly",
+        priority: 0.7,
+      },
+      {
+        url: `${base}/${locale}/category/berita-tren`,
+        lastmod: now,
+        changefreq: "weekly",
+        priority: 0.7,
+      },
+    );
+  });
+
+  // 2. Pagination pages
+  SUPPORTED_LOCALES.forEach((locale, index) => {
+    const total = totalsByLocale[index] ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / BLOG_PER_PAGE));
+    for (let i = 2; i <= totalPages; i++) {
+      entries.push({
+        url: `${base}/${locale}/blog/page/${i}`,
+        lastmod: now,
+        changefreq: "weekly",
+        priority: 0.5,
+      });
+    }
+  });
+
+  // 3. Articles grouped by slug for hreflang
+  const bySlug = new Map<
+    string,
+    Partial<Record<(typeof SUPPORTED_LOCALES)[number], (typeof articlesByLocale)[number][number]>>
+  >();
+
+  SUPPORTED_LOCALES.forEach((locale, index) => {
+    for (const article of articlesByLocale[index] ?? []) {
+      const current = bySlug.get(article.slug) ?? {};
+      current[locale] = article;
+      bySlug.set(article.slug, current);
+    }
+  });
+
+  for (const [slug, variants] of bySlug) {
+    const primary = variants.id ?? variants.en;
+    if (!primary) continue;
+
+    const languages: Record<string, string> = {};
+    for (const locale of SUPPORTED_LOCALES) {
+      if (variants[locale]) {
+        languages[locale] = `${base}/${locale}/blog/${slug}`;
+      }
+    }
+    languages["x-default"] = `${base}/id/blog/${slug}`;
+
+    SUPPORTED_LOCALES.forEach((locale) => {
+      const variant = variants[locale];
+      if (!variant) return;
+      entries.push({
+        url: `${base}/${locale}/blog/${slug}`,
+        lastmod: variant.updated_at
+          ? new Date(variant.updated_at).toISOString()
+          : now,
+        changefreq: "weekly",
+        priority: 0.7,
+        alternates: languages,
+      });
+    });
+  }
+
+  // XML Builder with XSL stylesheet
+  const urlNodes = entries.map((entry) => {
+    const lines = [
+      "  <url>",
+      `    <loc>${escapeXml(entry.url)}</loc>`,
+      `    <lastmod>${entry.lastmod}</lastmod>`,
+    ];
+    if (entry.changefreq) {
+      lines.push(`    <changefreq>${entry.changefreq}</changefreq>`);
+    }
+    if (entry.priority !== undefined) {
+      lines.push(`    <priority>${entry.priority.toFixed(1)}</priority>`);
+    }
+    if (entry.alternates) {
+      for (const [lang, href] of Object.entries(entry.alternates)) {
+        lines.push(
+          `    <xhtml:link rel="alternate" hreflang="${escapeXml(lang)}" href="${escapeXml(href)}" />`,
+        );
+      }
+    }
+    lines.push("  </url>");
+    return lines.join("\n");
+  });
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${urlNodes.join("\n")}
+</urlset>`;
+
+  return new NextResponse(xml, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+    },
+  });
+}
