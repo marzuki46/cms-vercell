@@ -21,7 +21,13 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getAdminUser();
+  let userEmail = "Admin";
+  try {
+    const user = await getAdminUser();
+    if (user?.email) userEmail = user.email;
+  } catch (err) {
+    console.error("AdminLayout getAdminUser failed:", (err as Error).message);
+  }
 
   return (
     <div className="min-h-screen bg-[#f0f0f1] text-[#2c3338] flex flex-col font-sans">
@@ -29,7 +35,7 @@ export default async function AdminLayout({
       <header className="bg-[#1d2327] text-[#f0f0f1] text-xs h-10 px-4 flex items-center justify-between sticky top-0 z-50 border-b border-[#2c3338]">
         <div className="flex items-center gap-4">
           <Link
-            href="/"
+            href="/id"
             target="_blank"
             className="flex items-center gap-1.5 font-bold hover:text-[#72aee6] transition py-1"
             title="Lihat Situs Publik"
@@ -45,7 +51,7 @@ export default async function AdminLayout({
 
         <div className="flex items-center gap-3">
           <span className="text-[#a7aaad] hidden sm:inline">
-            Halo, <strong className="text-white">{user?.email ?? "Admin"}</strong>
+            Halo, <strong className="text-white">{userEmail}</strong>
           </span>
           <SignOutButton />
         </div>
