@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Markdown from "@/components/markdown";
-import { apiSend } from "@/lib/client-api";
+import { apiGet, apiSend } from "@/lib/client-api";
 
 interface GeneratedData {
   title: string;
@@ -21,6 +21,10 @@ interface Props {
 
 const STORAGE_KEYWORD_PROMPT = "cms_custom_keyword_prompt";
 const STORAGE_CONTENT_PROMPT = "cms_custom_content_prompt";
+const STORAGE_CTA_TYPE = "cms_custom_cta_type";
+const STORAGE_CTA_TEXT = "cms_custom_cta_text";
+const STORAGE_CTA_TARGET = "cms_custom_cta_target";
+const STORAGE_CTA_INSTRUCTION = "cms_custom_cta_instruction";
 
 const DEFAULT_KEYWORD_PROMPT = `Ekstrak dan kembangkan kata kunci entitas SEO:
 1. Target kata kunci utama (Primary Keyword)
@@ -31,35 +35,70 @@ const DEFAULT_CONTENT_PROMPT = `Tulis artikel SEO mendalam, faktual, dan kompreh
 - Buat judul menarik (H1) yang mengundang klik
 - Struktur konten rapi dengan Sub-heading (H2, H3)
 - Sertakan poin-poin actionable, perbandingan, atau tips praktis
+- Sisipkan Call To Action (CTA) secara natural dan terarah agar pembaca mengambil tindakan
 - Bahasa mengalir, profesional, dan ramah pembaca
 - Optimasi kaidah Google Helpful Content & E-E-A-T`;
+
+const DEFAULT_CTA_INSTRUCTION = `Arahkan pembaca yang membutuhkan bantuan / konsultasi / promo khusus untuk menghubungi via WhatsApp atau klik tautan penawaran resmi. Berikan kalimat pengantar yang persuasif di tengah artikel dan kalimat penutup yang kuat di akhir artikel.`;
 
 export default function AiContentStudio({ onAccept, onCancel }: Props) {
   const [topicOrParagraph, setTopicOrParagraph] = useState("");
   const [keywordPrompt, setKeywordPrompt] = useState(DEFAULT_KEYWORD_PROMPT);
   const [contentPrompt, setContentPrompt] = useState(DEFAULT_CONTENT_PROMPT);
-  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
+  // CTA State
+  const [ctaType, setCtaType] = useState<"whatsapp" | "link" | "custom" | "none">("whatsapp");
+  const [ctaText, setCtaText] = useState("Hubungi Kami via WhatsApp");
+  const [ctaTarget, setCtaTarget] = useState("");
+  const [ctaInstruction, setCtaInstruction] = useState(DEFAULT_CTA_INSTRUCTION);
+
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<GeneratedData | null>(null);
 
-  // Muat prompt tersimpan dari LocalStorage browser
+  // Load saved preferences & settings from DB & LocalStorage
   useEffect(() => {
     try {
       const savedKw = localStorage.getItem(STORAGE_KEYWORD_PROMPT);
       if (savedKw) setKeywordPrompt(savedKw);
       const savedCt = localStorage.getItem(STORAGE_CONTENT_PROMPT);
       if (savedCt) setContentPrompt(savedCt);
+      const savedCtaType = localStorage.getItem(STORAGE_CTA_TYPE);
+      if (savedCtaType) setCtaType(savedCtaType as any);
+      const savedCtaText = localStorage.getItem(STORAGE_CTA_TEXT);
+      if (savedCtaText) setCtaText(savedCtaText);
+      const savedCtaTarget = localStorage.getItem(STORAGE_CTA_TARGET);
+      if (savedCtaTarget) setCtaTarget(savedCtaTarget);
+      const savedCtaInstruction = localStorage.getItem(STORAGE_CTA_INSTRUCTION);
+      if (savedCtaInstruction) setCtaInstruction(savedCtaInstruction);
     } catch {
       // Safe fallback
     }
+
+    // Ambil default WhatsApp number dari Settings situs jika belum ada di localStorage
+    (async () => {
+      try {
+        const res = await apiGet<{ settings: { whatsapp_number?: string | null } }>(
+          "/api/admin/settings",
+        );
+        if (res?.settings?.whatsapp_number && !localStorage.getItem(STORAGE_CTA_TARGET)) {
+          setCtaTarget(res.settings.whatsapp_number);
+        }
+      } catch {
+        // Safe fallback
+      }
+    })();
   }, []);
 
   function savePrompts() {
     try {
       localStorage.setItem(STORAGE_KEYWORD_PROMPT, keywordPrompt);
       localStorage.setItem(STORAGE_CONTENT_PROMPT, contentPrompt);
+      localStorage.setItem(STORAGE_CTA_TYPE, ctaType);
+      localStorage.setItem(STORAGE_CTA_TEXT, ctaText);
+      localStorage.setItem(STORAGE_CTA_TARGET, ctaTarget);
+      localStorage.setItem(STORAGE_CTA_INSTRUCTION, ctaInstruction);
       setSaveSuccessNotice(true);
       setTimeout(() => setSaveSuccessNotice(false), 3000);
     } catch {
@@ -68,12 +107,18 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
   }
 
   function resetPrompts() {
-    if (confirm("Kembalikan template prompt ke default bawaan?")) {
+    if (confirm("Kembalikan template prompt & pengaturan CTA ke default bawaan?")) {
       setKeywordPrompt(DEFAULT_KEYWORD_PROMPT);
       setContentPrompt(DEFAULT_CONTENT_PROMPT);
+      setCtaType("whatsapp");
+      setCtaText("Hubungi Kami via WhatsApp");
+      setCtaInstruction(DEFAULT_CTA_INSTRUCTION);
       try {
         localStorage.removeItem(STORAGE_KEYWORD_PROMPT);
         localStorage.removeItem(STORAGE_CONTENT_PROMPT);
+        localStorage.removeItem(STORAGE_CTA_TYPE);
+        localStorage.removeItem(STORAGE_CTA_TEXT);
+        localStorage.removeItem(STORAGE_CTA_INSTRUCTION);
       } catch {
         // Ignore
       }
@@ -101,6 +146,10 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
           topicOrParagraph: topicOrParagraph.trim(),
           keywordPrompt: keywordPrompt.trim(),
           contentPrompt: contentPrompt.trim(),
+          ctaType,
+          ctaText: ctaText.trim(),
+          ctaTarget: ctaTarget.trim(),
+          ctaInstruction: ctaInstruction.trim(),
         },
       );
 
@@ -123,10 +172,10 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
         <div>
           <h2 className="text-lg font-bold text-[#1d2327] flex items-center gap-2">
             <span>⚡</span>
-            <span>Studio Generator Konten AI & Riset Entitas</span>
+            <span>Studio Generator Konten AI, Riset Entitas &amp; Pengarah Trafik CTA</span>
           </h2>
           <p className="text-xs text-[#646970] mt-0.5">
-            Input topik atau paragraf ide, sesuaikan template prompt keyword & konten, lalu preview hasilnya sebelum di-ACC.
+            Input topik, atur template prompt kata kunci &amp; data CTA penawaran, lalu tinjau hasilnya sebelum disimpan ke editor.
           </p>
         </div>
         <button
@@ -146,32 +195,33 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
 
       {saveSuccessNotice ? (
         <div className="bg-[#edfaef] border-l-4 border-[#008a20] p-2 text-xs font-semibold text-[#008a20]">
-          ✓ Template prompt keyword & konten berhasil disimpan di browser Anda!
+          ✓ Template prompt dan data target CTA berhasil disimpan permanen di browser!
         </div>
       ) : null}
 
       {/* Input Form Section */}
       {!previewData ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
+          {/* 1. Input Topik / Paragraf */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#1d2327] mb-1">
-              1. Input Topik atau Tempel Paragraf Awal <span className="text-red-500">*</span>
+              1. Input Topik atau Tempel Paragraf Ide <span className="text-red-500">*</span>
             </label>
             <textarea
               rows={4}
               value={topicOrParagraph}
               onChange={(e) => setTopicOrParagraph(e.target.value)}
-              placeholder="Contoh: Promo Dealer Motor Honda Solo terbaru atau tempel satu paragraf draft ide Anda di sini..."
+              placeholder="Contoh: Promo Dealer Motor Honda Solo diskon uang muka dan simulasi cicilan ringan..."
               className="w-full text-sm px-3 py-2 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
             />
           </div>
 
-          {/* Prompt Templates (Accordion / Grid) */}
+          {/* 2 & 3. Prompt Templates */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#f6f7f7] p-4 rounded-lg border border-[#dcdcde]">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-[#1d2327]">
-                  2. Prompt Riset Entitas & Keyword
+                  2. Prompt Riset Entitas &amp; Keyword
                 </label>
                 <span className="text-[10px] text-[#646970]">Tersimpan Otomatis</span>
               </div>
@@ -199,6 +249,84 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
             </div>
           </div>
 
+          {/* 4. DATA UNTUK CTA & PENGARAH TRAFIK (Target Conversion) */}
+          <div className="bg-[#f0f7ff] border border-[#cce5ff] p-4 sm:p-5 rounded-lg flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-[#b8daff] pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎯</span>
+                <h3 className="text-sm font-bold text-[#004085]">
+                  4. Data Target Call-To-Action (CTA) &amp; Pengarah Trafik
+                </h3>
+              </div>
+              <span className="text-[10px] font-semibold bg-[#cce5ff] text-[#004085] px-2 py-0.5 rounded">
+                Tersimpan Otomatis
+              </span>
+            </div>
+
+            <p className="text-xs text-[#004085] leading-relaxed">
+              AI akan otomatis memahami tujuan konversi artikel dan menyisipkan tombol/link penawaran yang terarah di tengah dan akhir artikel.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-[#1d2327] mb-1">
+                  Jenis Tindakan (CTA Type)
+                </label>
+                <select
+                  value={ctaType}
+                  onChange={(e) => setCtaType(e.target.value as any)}
+                  className="w-full text-xs px-2.5 py-2 border border-[#8c8f94] rounded bg-white outline-none focus:border-[#2271b1]"
+                >
+                  <option value="whatsapp">💬 WhatsApp Langsung (Lead Capture)</option>
+                  <option value="link">🔗 Tautan URL Halaman / Landing Page</option>
+                  <option value="custom">✍️ Kustom Sesuai Arahan</option>
+                  <option value="none">Tanpa CTA Khusus</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1d2327] mb-1">
+                  Teks Tombol / Tautan CTA
+                </label>
+                <input
+                  type="text"
+                  value={ctaText}
+                  onChange={(e) => setCtaText(e.target.value)}
+                  placeholder="mis. Konsultasi Promo Honda Sekarang"
+                  className="w-full text-xs px-2.5 py-2 border border-[#8c8f94] rounded bg-white outline-none focus:border-[#2271b1]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1d2327] mb-1">
+                  {ctaType === "whatsapp" ? "Nomor WhatsApp Tujuan" : "Target URL / Link Tujuan"}
+                </label>
+                <input
+                  type="text"
+                  value={ctaTarget}
+                  onChange={(e) => setCtaTarget(e.target.value)}
+                  placeholder={ctaType === "whatsapp" ? "mis. 6281234567890" : "https://domainanda.com/promo"}
+                  className="w-full text-xs px-2.5 py-2 border border-[#8c8f94] rounded bg-white outline-none focus:border-[#2271b1]"
+                />
+              </div>
+            </div>
+
+            {ctaType === "custom" || ctaType === "whatsapp" ? (
+              <div>
+                <label className="block text-xs font-bold text-[#1d2327] mb-1">
+                  Instruksi Gaya CTA ke AI (Agar AI Paham Konteks Penawaran)
+                </label>
+                <textarea
+                  rows={2}
+                  value={ctaInstruction}
+                  onChange={(e) => setCtaInstruction(e.target.value)}
+                  placeholder="Instruksi tambahan bagaimana AI mengajak pembaca..."
+                  className="w-full text-xs font-mono px-2.5 py-2 border border-[#8c8f94] rounded bg-white outline-none focus:border-[#2271b1]"
+                />
+              </div>
+            ) : null}
+          </div>
+
           {/* Action buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2">
@@ -207,7 +335,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
                 onClick={savePrompts}
                 className="text-xs font-semibold px-3 py-1.5 rounded border border-[#8c8f94] bg-white hover:bg-[#f0f0f1]"
               >
-                💾 Simpan Template Prompt
+                💾 Simpan Template &amp; Data CTA
               </button>
               <button
                 type="button"
@@ -227,12 +355,12 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
               {loading ? (
                 <>
                   <span className="animate-spin">⚙️</span>
-                  <span>Sedang Mengembangkan Konten AI…</span>
+                  <span>Sedang Mengembangkan Konten &amp; Merancang CTA…</span>
                 </>
               ) : (
                 <>
                   <span>🚀</span>
-                  <span>Generate & Kembangkan Konten</span>
+                  <span>Generate Konten + CTA Terarah</span>
                 </>
               )}
             </button>
@@ -244,7 +372,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
           <div className="bg-[#f0f7ff] border border-[#cce5ff] p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-xs font-bold text-[#004085] uppercase tracking-wider">
-                Pratinjau Hasil Generate AI ({previewData.word_count} kata)
+                Pratinjau Hasil Generate AI ({previewData.word_count} kata · Termasuk Integrasi CTA)
               </span>
               <h3 className="text-base font-bold text-[#1d2327] mt-0.5">
                 {previewData.title}
@@ -256,7 +384,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
                 onClick={() => setPreviewData(null)}
                 className="px-3.5 py-2 text-xs font-semibold border border-[#8c8f94] rounded bg-white hover:bg-[#f6f7f7]"
               >
-                🔄 Generate Ulang
+                🔄 Ubah / Generate Ulang
               </button>
               <button
                 type="button"
@@ -264,15 +392,15 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
                 className="px-5 py-2 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1.5"
               >
                 <span>✓</span>
-                <span>ACC & Masukkan ke Editor</span>
+                <span>ACC &amp; Masukkan ke Editor</span>
               </button>
             </div>
           </div>
 
-          {/* Keywords & Metadata preview badges */}
+          {/* Keywords badges */}
           {previewData.keywords.length > 0 ? (
             <div className="flex flex-wrap items-center gap-1.5 p-3 bg-[#f6f7f7] rounded border border-[#dcdcde]">
-              <span className="text-xs font-bold text-[#50575e] mr-1">Entitas Keyword:</span>
+              <span className="text-xs font-bold text-[#50575e] mr-1">Entitas Keyword Terdeteksi:</span>
               {previewData.keywords.map((kw, i) => (
                 <span
                   key={i}
@@ -285,7 +413,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
           ) : null}
 
           {/* Article Body Preview */}
-          <div className="border border-[#c3c4c7] rounded-lg p-5 max-h-[500px] overflow-y-auto bg-white">
+          <div className="border border-[#c3c4c7] rounded-lg p-5 max-h-[500px] overflow-y-auto bg-white article-body">
             <Markdown content={previewData.content_md} />
           </div>
 
@@ -295,7 +423,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
               onClick={() => setPreviewData(null)}
               className="px-4 py-2 text-sm font-medium border border-[#c3c4c7] rounded hover:bg-[#f6f7f7]"
             >
-              Kembali Edit Prompt
+              Kembali Edit Prompt &amp; CTA
             </button>
             <button
               type="button"
@@ -303,7 +431,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
               className="px-6 py-2 text-sm font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-2"
             >
               <span>✓</span>
-              <span>ACC & Masukkan ke Editor Form</span>
+              <span>ACC &amp; Masukkan ke Editor Form</span>
             </button>
           </div>
         </div>

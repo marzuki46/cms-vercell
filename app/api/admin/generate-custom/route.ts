@@ -12,6 +12,10 @@ interface RequestBody {
   topicOrParagraph: string;
   keywordPrompt?: string;
   contentPrompt?: string;
+  ctaType?: "whatsapp" | "link" | "custom" | "none";
+  ctaText?: string;
+  ctaTarget?: string; // nomor WhatsApp atau URL tujuan
+  ctaInstruction?: string;
   model?: string;
 }
 
@@ -53,6 +57,31 @@ export async function POST(request: NextRequest) {
 
   const model = body.model || settings.model_writer || "openai/gpt-4o";
 
+  // Konfigurasi Target CTA dari request atau fallback ke database settings
+  const ctaType = body.ctaType || (settings.whatsapp_number ? "whatsapp" : "none");
+  const ctaNumber = (body.ctaTarget || settings.whatsapp_number || "").replace(/\D/g, "");
+  const ctaLabel = body.ctaText || "Konsultasi Sekarang via WhatsApp";
+  const customCtaInstruction = body.ctaInstruction || "";
+
+  let ctaGuideline = "";
+  if (ctaType === "whatsapp" && ctaNumber) {
+    const waUrl = `https://wa.me/${ctaNumber}?text=Halo%20Admin,%20saya%20tertarik%20dengan%20informasi%20ini`;
+    ctaGuideline = `PENTING - INTEGRASI CALL TO ACTION (CTA) WHATSAPP:
+- Tujuan Konversi: Mengarahkan pembaca untuk berkonsultasi / pesan via WhatsApp resmi (${ctaNumber}).
+- Masukkan Call To Action (CTA) yang sangat persuasif dan kontekstual:
+  1. Satu CTA soft-selling di tengah artikel (setelah pembahasan manfaat/solusi).
+  2. Satu CTA strong-selling di akhir artikel (bagian penutup/kesimpulan).
+- Format link tombol CTA di Markdown wajib mengarah ke tautan: [${ctaLabel}](${waUrl})
+- Beri kalimat pengantar yang relevan dan mendesak (urgency / scarcity / diskon / bonus konsultasi).`;
+  } else if (ctaType === "link" && body.ctaTarget) {
+    ctaGuideline = `PENTING - INTEGRASI CALL TO ACTION (CTA) LINK TUJUAN:
+- Tujuan Konversi: Mengarahkan pembaca ke URL tujuan: ${body.ctaTarget}
+- Masukkan link CTA di bagian tengah dan penutup artikel dengan teks jangkar yang kuat: [${ctaLabel}](${body.ctaTarget})`;
+  } else if (ctaType === "custom" && customCtaInstruction) {
+    ctaGuideline = `PENTING - INTEGRASI CALL TO ACTION (CTA) KHUSUS:
+${customCtaInstruction}`;
+  }
+
   // Default SEO entity & keyword prompt if custom prompt not provided
   const keywordInstruction = (body.keywordPrompt ?? "").trim() ||
     `Analisis input topik/paragraf berikut dan identifikasi:
@@ -69,7 +98,7 @@ Sertakan bullet points, tips praktis, dan bahasa yang ramah pembaca dan mudah di
 Optimalkan untuk Google Helpful Content & E-E-A-T.
 Bahasa: ${settings.language === "en" ? "English" : "Bahasa Indonesia"}`;
 
-  const prompt = `Anda adalah seorang Master SEO Content Strategist & Senior Tech/Automotive/Business Writer.
+  const prompt = `Anda adalah seorang Master SEO Content Strategist & Senior Tech/Automotive/Business Conversion Copywriter.
 
 INPUT AWAL DARI PENGGUNA (TOPIK / PARAGRAF):
 """
@@ -86,6 +115,8 @@ PANDUAN PENGEMBANGAN KONTEN:
 ${contentInstruction}
 """
 
+${ctaGuideline ? `INSTRUKSI KONVERSI TRAFIK & CALL TO ACTION (CTA):\n"""\n${ctaGuideline}\n"""\n` : ""}
+
 ATURAN OUTPUT:
 Keluarkan HASIL AKHIR HANYA dalam format JSON valid tanpa teks pengantar atau penutup apapun dengan struktur skema berikut:
 {
@@ -94,7 +125,7 @@ Keluarkan HASIL AKHIR HANYA dalam format JSON valid tanpa teks pengantar atau pe
   "seo_description": "Meta deskripsi persuasif (maks 155 karakter)",
   "excerpt": "Ringkasan artikel 2-3 kalimat",
   "keywords": ["keyword 1", "keyword 2", "keyword 3", "keyword 4", "keyword 5"],
-  "content_md": "Isi lengkap artikel dalam format Markdown lengkap dengan heading #, ##, ###, bullet points, dan pembahasan mendalam..."
+  "content_md": "Isi lengkap artikel dalam format Markdown lengkap dengan heading #, ##, ###, bullet points, CTA link yang rapi, dan pembahasan mendalam..."
 }`;
 
   try {
