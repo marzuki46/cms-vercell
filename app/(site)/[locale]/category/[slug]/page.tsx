@@ -61,7 +61,7 @@ export default async function CategoryClusterPage({ params }: Props) {
   ]);
   if (!category) notFound();
 
-  const articles = await getArticlesByCategory(slug, 30);
+  const articles = await getArticlesByCategory(slug, 30, locale);
   const en = locale === "en";
   const base = env.siteUrl || "http://localhost:3000";
   const url = `${base}/${locale}/category/${slug}`;

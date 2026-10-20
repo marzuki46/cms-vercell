@@ -73,7 +73,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const locale = raw;
 
   const article = await getArticleBySlug(slug, locale);
-  if (!article) return { title: "Artikel tidak ditemukan" };
+  if (!article || (article.language || "id") !== locale) {
+    return { title: "Artikel tidak ditemukan" };
+  }
 
   const base = baseUrl();
   const url = `${base}/${locale}/blog/${slug}`;
@@ -131,6 +133,12 @@ export default async function ArticlePage({ params }: Props) {
     getAuthorBySlug("admin"),
   ]);
   if (!article) notFound();
+
+  // Strict language gate: if article is not in the requested locale, 404 to prevent duplicate content
+  const articleLang = article.language || "id";
+  if (articleLang !== locale) {
+    notFound();
+  }
 
   const boxPosition = site.author_profile?.author_box_position ?? "bottom";
   const showTopAuthor = (boxPosition === "top" || boxPosition === "both") && Boolean(author);

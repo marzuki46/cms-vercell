@@ -7,8 +7,10 @@ import { DEFAULT_LOCALE } from "@/lib/i18n";
 import type { Article, ArticleListItem, Author, AuthorProfile, Category, HomeCopy } from "@/types/db";
 
 const LIST_COLUMNS_WITH_CAT =
-  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,category_slug";
+  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,category_slug,language";
 const LIST_COLUMNS_BASE =
+  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,language";
+const LIST_COLUMNS_LEGACY =
   "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author";
 
 /** Use service role on server if available to bypass RLS failures, fallback to public client */
@@ -160,22 +162,31 @@ export const getPublishedArticles = unstable_cache(
     };
 
     const targetLang = locale || "id";
-    // 1. Try with category_slug and target locale
-    let res = await queryArticles(LIST_COLUMNS_WITH_CAT, targetLang);
 
-    // If category_slug column is missing, retry with base columns
+    // STRICT ISOLATION FOR ENGLISH: never fallback to Indonesian articles
+    if (targetLang === "en") {
+      let res = await queryArticles(LIST_COLUMNS_WITH_CAT, "en");
+      if (res.error && res.error.message.includes("category_slug")) {
+        res = await queryArticles(LIST_COLUMNS_BASE, "en");
+      }
+      if (res.error) {
+        // If language column doesn't exist, there are definitely 0 English articles
+        return [];
+      }
+      return (res.data ?? []) as unknown as ArticleListItem[];
+    }
+
+    // Default locale (id) query with schema resilience
+    let res = await queryArticles(LIST_COLUMNS_WITH_CAT, "id");
     if (res.error && res.error.message.includes("category_slug")) {
-      res = await queryArticles(LIST_COLUMNS_BASE, targetLang);
+      res = await queryArticles(LIST_COLUMNS_BASE, "id");
     }
-
-    // If language column is missing and error occurred, retry without language filter
     if (res.error && res.error.message.includes("language")) {
-      res = await queryArticles(LIST_COLUMNS_BASE, "all");
+      res = await queryArticles(LIST_COLUMNS_LEGACY, "all");
     }
 
-    // If locale is ID and returned 0 articles, try unconditional query (legacy rows)
     if ((!res.data || res.data.length === 0) && (targetLang === "id" || targetLang === DEFAULT_LOCALE)) {
-      const fallback = await queryArticles(LIST_COLUMNS_BASE, "all");
+      const fallback = await queryArticles(LIST_COLUMNS_LEGACY, "all");
       if (!fallback.error && fallback.data && fallback.data.length > 0) {
         return fallback.data as unknown as ArticleListItem[];
       }
@@ -213,8 +224,15 @@ export const getPublishedCount = unstable_cache(
     };
 
     const targetLang = locale || "id";
-    let res = await countQuery(targetLang);
 
+    // Strict count for English: never fallback to all
+    if (targetLang === "en") {
+      const res = await countQuery("en");
+      if (res.error) return 0;
+      return res.count ?? 0;
+    }
+
+    let res = await countQuery("id");
     if (res.error && res.error.message.includes("language")) {
       res = await countQuery("all");
     }
@@ -253,7 +271,15 @@ export const getPublishedSlugs = unstable_cache(
     };
 
     const targetLang = locale || "id";
-    let res = await build(targetLang);
+
+    // Strict slugs for English: never fallback to all/ID
+    if (targetLang === "en") {
+      const res = await build("en");
+      if (res.error || !res.data) return [];
+      return res.data.map((r) => r.slug as string);
+    }
+
+    let res = await build("id");
     if (res.error && res.error.message.includes("language")) {
       res = await build("all");
     }
@@ -287,7 +313,18 @@ export const getArticleBySlug = unstable_cache(
     };
 
     const targetLang = locale || "id";
-    let res = await build(targetLang).maybeSingle();
+
+    // Strict fetch for English: MUST have language = 'en'
+    if (targetLang === "en") {
+      const res = await build("en").maybeSingle();
+      if (res.error || !res.data) return null;
+      const row = res.data as Article;
+      if (row.language !== "en") return null;
+      return row;
+    }
+
+    // Default Indonesian query
+    let res = await build("id").maybeSingle();
     if (res.error && res.error.message.includes("language")) {
       res = await build("all").maybeSingle();
     }
@@ -295,7 +332,10 @@ export const getArticleBySlug = unstable_cache(
     if (!res.data && (targetLang === "id" || targetLang === DEFAULT_LOCALE)) {
       const fallback = await build("all").maybeSingle();
       if (!fallback.error && fallback.data) {
-        return fallback.data as Article;
+        const row = fallback.data as Article;
+        // Do not serve explicit English article on Indonesian URL either
+        if (row.language && row.language !== "id") return null;
+        return row;
       }
     }
 
@@ -391,6 +431,8 @@ export const getArticlesByAuthor = unstable_cache(
   async (authorName: string, limit = 20, locale?: string): Promise<ArticleListItem[]> => {
     const sb = getContentClient();
     if (!sb) return [];
+    const targetLang = locale || "id";
+
     const build = (cols: string, useAuthorFilter: boolean) => {
       let q = sb
         .from("articles")
@@ -403,10 +445,11 @@ export const getArticlesByAuthor = unstable_cache(
       if (useAuthorFilter && authorName) {
         q = q.ilike("author", `%${authorName}%`);
       }
-      if (locale === "id" || locale === DEFAULT_LOCALE) {
+
+      if (targetLang === "id" || targetLang === DEFAULT_LOCALE) {
         q = q.or("language.eq.id,language.is.null");
-      } else if (locale && locale !== "all") {
-        q = q.eq("language", locale);
+      } else if (targetLang && targetLang !== "all") {
+        q = q.eq("language", targetLang);
       }
       return q;
     };
@@ -418,9 +461,15 @@ export const getArticlesByAuthor = unstable_cache(
       error = retry.error;
     }
 
-    // If no articles found with strict author name, fallback to all published articles
+    // Strict i18n: if locale is English, never fallback to Indonesian articles
+    if (targetLang === "en") {
+      if (error || !data) return [];
+      return data as unknown as ArticleListItem[];
+    }
+
+    // If no articles found with strict author name, fallback to all published articles for ID
     if (!error && (!data || data.length === 0)) {
-      const general = await build(LIST_COLUMNS_BASE, false);
+      const general = await build(LIST_COLUMNS_LEGACY, false);
       if (!general.error && general.data) {
         return general.data as unknown as ArticleListItem[];
       }
@@ -471,17 +520,27 @@ export const getCategoryBySlug = unstable_cache(
 );
 
 export const getArticlesByCategory = unstable_cache(
-  async (categorySlug: string, limit = 20): Promise<ArticleListItem[]> => {
+  async (categorySlug: string, limit = 20, locale?: string): Promise<ArticleListItem[]> => {
     const sb = getContentClient();
     if (!sb) return [];
-    const build = (cols: string) =>
-      sb
+    const targetLang = locale || "id";
+
+    const build = (cols: string) => {
+      let q = sb
         .from("articles")
         .select(cols)
         .eq("status", "published")
         .eq("category_slug", categorySlug)
         .order("published_at", { ascending: false, nullsFirst: false })
         .limit(limit);
+
+      if (targetLang === "id" || targetLang === DEFAULT_LOCALE) {
+        q = q.or("language.eq.id,language.is.null");
+      } else if (targetLang && targetLang !== "all") {
+        q = q.eq("language", targetLang);
+      }
+      return q;
+    };
 
     let { data, error } = await build(LIST_COLUMNS_WITH_CAT);
     if (error && error.message.includes("category_slug")) {
