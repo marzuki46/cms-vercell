@@ -26,52 +26,65 @@ async function loadData() {
   if (!hasServiceRole()) return null;
   const sb = createAdminClient();
 
-  const articleCounts = await Promise.all(
-    ARTICLE_STATUSES.map(async (status) => {
-      const { count } = await sb
-        .from("articles")
-        .select("id", { count: "exact", head: true })
-        .eq("status", status);
-      return [status, count ?? 0] as const;
-    }),
-  );
+  try {
+    const articleCounts = await Promise.all(
+      ARTICLE_STATUSES.map(async (status) => {
+        try {
+          const { count } = await sb
+            .from("articles")
+            .select("id", { count: "exact", head: true })
+            .eq("status", status);
+          return [status, count ?? 0] as const;
+        } catch {
+          return [status, 0] as const;
+        }
+      }),
+    );
 
-  const topicCounts = await Promise.all(
-    TOPIC_STATUSES.map(async (status) => {
-      const { count } = await sb
-        .from("topics")
-        .select("id", { count: "exact", head: true })
-        .eq("status", status);
-      return [status, count ?? 0] as const;
-    }),
-  );
+    const topicCounts = await Promise.all(
+      TOPIC_STATUSES.map(async (status) => {
+        try {
+          const { count } = await sb
+            .from("topics")
+            .select("id", { count: "exact", head: true })
+            .eq("status", status);
+          return [status, count ?? 0] as const;
+        } catch {
+          return [status, 0] as const;
+        }
+      }),
+    );
 
-  const [{ data: jobs }, { data: articles }, { count: totalLeads }, settings] =
-    await Promise.all([
-      sb
-        .from("generation_jobs")
-        .select("id,type,status,model,error,started_at,finished_at")
-        .order("started_at", { ascending: false })
-        .limit(6),
-      sb
-        .from("articles")
-        .select("id,title,slug,status,created_at,author,word_count")
-        .order("created_at", { ascending: false })
-        .limit(6),
-      sb.from("whatsapp_leads").select("id", { count: "exact", head: true }),
-      getSettings(),
-    ]);
+    const [{ data: jobs }, { data: articles }, { count: totalLeads }, settings] =
+      await Promise.all([
+        sb
+          .from("generation_jobs")
+          .select("id,type,status,model,error,started_at,finished_at")
+          .order("started_at", { ascending: false })
+          .limit(6),
+        sb
+          .from("articles")
+          .select("id,title,slug,status,created_at,author,word_count")
+          .order("created_at", { ascending: false })
+          .limit(6),
+        sb.from("whatsapp_leads").select("id", { count: "exact", head: true }),
+        getSettings(),
+      ]);
 
-  return {
-    articleCounts: Object.fromEntries(articleCounts) as Record<string, number>,
-    topicCounts: Object.fromEntries(topicCounts) as Record<string, number>,
-    jobs: jobs ?? [],
-    articles: articles ?? [],
-    totalLeads: totalLeads ?? 0,
-    siteName: settings.site_name ?? "Situs Anda",
-    postsPerRun: Math.min(Math.max(settings.posts_per_run ?? 3, 1), 10),
-    aiReady: Boolean(settings.ninerouter_url),
-  };
+    return {
+      articleCounts: Object.fromEntries(articleCounts) as Record<string, number>,
+      topicCounts: Object.fromEntries(topicCounts) as Record<string, number>,
+      jobs: jobs ?? [],
+      articles: articles ?? [],
+      totalLeads: totalLeads ?? 0,
+      siteName: settings?.site_name ?? "Situs Anda",
+      postsPerRun: Math.min(Math.max(settings?.posts_per_run ?? 3, 1), 10),
+      aiReady: Boolean(settings?.ninerouter_url),
+    };
+  } catch (err) {
+    console.error("loadData error:", (err as Error).message);
+    return null;
+  }
 }
 
 export default async function AdminDashboard() {

@@ -81,23 +81,30 @@ export async function getSettings(): Promise<Settings> {
       .map(([name]) => name),
   ].join(",");
 
-  const { data, error } = await sb
-    .from("settings")
-    .select(columns)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  try {
+    const { data, error } = await sb
+      .from("settings")
+      .select(columns)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (data) return withDefaults(data as unknown as Record<string, unknown>, present);
+    if (error) {
+      console.error("getSettings query error:", error.message);
+      return withDefaults({}, present);
+    }
+    if (data) return withDefaults(data as unknown as Record<string, unknown>, present);
 
-  const { data: created, error: insertError } = await sb
-    .from("settings")
-    .insert({ singleton: true })
-    .select(columns)
-    .single();
-  if (insertError) throw new Error(insertError.message);
-  return withDefaults(created as unknown as Record<string, unknown>, present);
+    const { data: created } = await sb
+      .from("settings")
+      .insert({ singleton: true })
+      .select(columns)
+      .single();
+    return withDefaults((created ?? {}) as unknown as Record<string, unknown>, present);
+  } catch (err) {
+    console.error("getSettings catch:", (err as Error).message);
+    return withDefaults({}, present);
+  }
 }
 
 /** Patch the singleton settings row, skipping columns the database lacks. */
