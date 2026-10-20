@@ -73,7 +73,7 @@ ${idContent}
 
 CRITICAL INSTRUCTIONS:
 1. Native English Adaptation: Do not perform a literal word-for-word translation. Adapt the tone to be fluent, authoritative, and natural American/International English.
-2. Maintain Markdown Structure: Keep all headings (#, ##, ###), bullet lists, and tables intact.
+2. Heading Structure (Strict SEO): Do NOT output a leading # Title in content_md (the page template already renders the canonical H1 title). Start directly with the introduction or ## First Heading. Keep all sub-headings (##, ###), bullet lists, and tables intact.
 3. Call-To-Action (CTA): Adapt any Call-To-Action links or buttons into natural English (e.g. [Contact us on WhatsApp](...), [Get Promo Deal](...)).
 4. Concise Keyword-Focused Slug: Provide a short URL slug (strictly 3 to 5 core English words, maximum 45 characters, no stop words, URL safe).
 5. Output Format: Return ONLY a valid JSON object matching this schema without any preamble:
@@ -95,7 +95,8 @@ CRITICAL INSTRUCTIONS:
     });
 
     const parsed = extractJson<EnglishResult>(res.text);
-    const content = parsed.content_md || "";
+    // Strip redundant leading # H1 if AI included it
+    const content = (parsed.content_md || "").replace(/^#\s+[^\n]+(?:\r?\n|$)/, "").trim();
     const words = countWords(content);
     // Enforce concise keyword slug
     const cleanSlug = toSlug(parsed.slug || parsed.title || "english-article", 5);

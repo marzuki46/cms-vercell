@@ -11,6 +11,7 @@ interface Row {
   title: string;
   status: ArticleStatus;
   language?: "id" | "en";
+  translation_of?: string | null;
   published_at: string | null;
   scheduled_for: string | null;
   word_count: number | null;
@@ -222,111 +223,220 @@ export default function ArticlesAdmin() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#dcdcde]">
-                {rows.map((a) => {
-                  const lang = a.language ?? "id";
-                  const isEn = lang === "en";
-                  const isTranslating = translatingId === a.id;
+                {(() => {
+                  // Group articles into parent (ID) and child (EN translations)
+                  const childEnByParentId = new Map<string, Row[]>();
+                  const parentRows: Row[] = [];
+                  const orphanEnRows: Row[] = [];
 
-                  return (
-                    <tr key={a.id} className="hover:bg-[#fbfbfb] transition group">
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-[#2271b1] group-hover:underline">
-                          <Link href={`/admin/articles/${a.id}`}>{a.title}</Link>
-                        </div>
-                        <div className="text-xs text-[#646970] mt-1 flex items-center gap-3">
-                          <Link href={`/admin/articles/${a.id}`} className="hover:text-[#2271b1]">
-                            Edit
-                          </Link>
-                          <span>|</span>
-                          {a.status === "published" ? (
-                            <Link
-                              href={`/${lang}/blog/${a.slug}`}
-                              target="_blank"
-                              className="text-[#008a20] hover:underline"
-                            >
-                              Lihat di Web ↗
-                            </Link>
-                          ) : (
-                            <span className="italic text-gray-400">Belum publish</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                            isEn
-                              ? "bg-purple-100 text-purple-700 border border-purple-200"
-                              : "bg-blue-100 text-blue-700 border border-blue-200"
-                          }`}
-                        >
-                          {lang}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs text-[#50575e]">{a.author || "Admin"}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                            a.status === "published"
-                              ? "bg-[#edfaef] text-[#008a20]"
-                              : a.status === "draft"
-                              ? "bg-[#f0f0f1] text-[#50575e]"
-                              : "bg-[#fcf9e8] text-[#996800]"
-                          }`}
-                        >
-                          {a.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-xs text-[#50575e]">{a.word_count ?? 0}</td>
-                      <td className="py-3 px-4 text-xs text-[#50575e]">
-                        {a.published_at ? (
-                          <span>Terbit: {new Date(a.published_at).toLocaleDateString("id-ID")}</span>
-                        ) : (
-                          <span>Dibuat: {new Date(a.created_at).toLocaleDateString("id-ID")}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5 text-xs">
-                          {!isEn && (
-                            <button
-                              type="button"
-                              disabled={isTranslating}
-                              onClick={() => handleTranslate(a)}
-                              className="px-2 py-1 bg-purple-50 text-purple-700 border border-purple-300 rounded hover:bg-purple-100 transition disabled:opacity-50"
-                              title="Terjemahkan otomatis ke English menggunakan AI dan langsung terbitkan versi /en/"
-                            >
-                              {isTranslating ? "⏳ Translating..." : "🌐 Translate EN"}
-                            </button>
-                          )}
-                          {a.status !== "published" ? (
-                            <button
-                              type="button"
-                              disabled={busyId === a.id || isTranslating}
-                              onClick={() => patch(a.id, { status: "published" })}
-                              className="px-2.5 py-1 bg-[#008a20] text-white rounded hover:bg-[#007017] transition disabled:opacity-50"
-                            >
-                              Publish
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={busyId === a.id || isTranslating}
-                              onClick={() => patch(a.id, { status: "draft" })}
-                              className="px-2.5 py-1 bg-[#f0f0f1] border border-[#c3c4c7] text-[#50575e] rounded hover:bg-[#e0e0e0] transition disabled:opacity-50"
-                            >
-                              Jadikan Draft
-                            </button>
-                          )}
-                          <Link
-                            href={`/admin/articles/${a.id}`}
-                            className="px-2.5 py-1 bg-[#2271b1] text-white rounded hover:bg-[#135e96] transition"
+                  // First pass: identify explicit translation_of children
+                  for (const r of rows) {
+                    if (r.translation_of) {
+                      const list = childEnByParentId.get(r.translation_of) ?? [];
+                      list.push(r);
+                      childEnByParentId.set(r.translation_of, list);
+                    }
+                  }
+
+                  // Second pass: identify parents vs standalone ENs
+                  for (const r of rows) {
+                    if (r.translation_of) {
+                      // Already a child
+                      continue;
+                    }
+                    if (r.language === "en") {
+                      // Check heuristic if any ID row matches by slug or topic_id
+                      const parentCandidate = rows.find(
+                        (p) =>
+                          p.id !== r.id &&
+                          p.language !== "en" &&
+                          (p.slug === r.slug ||
+                            r.slug === `${p.slug}-en` ||
+                            r.slug.includes(p.slug)),
+                      );
+                      if (parentCandidate) {
+                        const list = childEnByParentId.get(parentCandidate.id) ?? [];
+                        list.push(r);
+                        childEnByParentId.set(parentCandidate.id, list);
+                      } else {
+                        orphanEnRows.push(r);
+                      }
+                    } else {
+                      parentRows.push(r);
+                    }
+                  }
+
+                  const renderRow = (a: Row, isChild = false) => {
+                    const lang = a.language ?? "id";
+                    const isEn = lang === "en";
+                    const isTranslating = translatingId === a.id;
+                    const children = childEnByParentId.get(a.id) ?? [];
+                    const hasEnTranslation = isEn ? true : children.length > 0;
+
+                    return (
+                      <tr
+                        key={a.id}
+                        className={`transition group ${
+                          isChild
+                            ? "bg-[#faf8fd] border-l-4 border-l-purple-500 hover:bg-[#f3edf9]"
+                            : "hover:bg-[#fbfbfb]"
+                        }`}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            {isChild ? (
+                              <span className="text-purple-600 font-bold select-none text-base pl-2">
+                                ↳
+                              </span>
+                            ) : null}
+                            <div className="font-semibold text-[#2271b1] group-hover:underline">
+                              <Link href={`/admin/articles/${a.id}`}>
+                                {isChild ? (
+                                  <span className="text-purple-900">{a.title}</span>
+                                ) : (
+                                  a.title
+                                )}
+                              </Link>
+                            </div>
+                            {!isChild && hasEnTranslation ? (
+                              <span
+                                title="Sudah memiliki versi terjemahan English"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full"
+                              >
+                                ✓ Ada EN ({children.length})
+                              </span>
+                            ) : !isChild ? (
+                              <span
+                                title="Belum memiliki versi terjemahan English"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
+                              >
+                                Belum EN
+                              </span>
+                            ) : null}
+                          </div>
+                          <div
+                            className={`text-xs text-[#646970] mt-1 flex items-center gap-3 ${
+                              isChild ? "pl-6" : ""
+                            }`}
                           >
-                            Edit
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <Link href={`/admin/articles/${a.id}`} className="hover:text-[#2271b1]">
+                              Edit
+                            </Link>
+                            <span>|</span>
+                            {a.status === "published" ? (
+                              <Link
+                                href={`/${lang}/blog/${a.slug}`}
+                                target="_blank"
+                                className="text-[#008a20] hover:underline"
+                              >
+                                Lihat di Web (/{lang}/) ↗
+                              </Link>
+                            ) : (
+                              <span className="italic text-gray-400">Belum publish</span>
+                            )}
+                            {isChild ? (
+                              <>
+                                <span>|</span>
+                                <span className="text-purple-600 text-[11px] font-medium">
+                                  Terjemahan dari pos induk ID
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                              isEn
+                                ? "bg-purple-100 text-purple-700 border border-purple-200"
+                                : "bg-blue-100 text-blue-700 border border-blue-200"
+                            }`}
+                          >
+                            {lang}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-[#50575e]">{a.author || "Admin"}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                              a.status === "published"
+                                ? "bg-[#edfaef] text-[#008a20]"
+                                : a.status === "draft"
+                                ? "bg-[#f0f0f1] text-[#50575e]"
+                                : "bg-[#fcf9e8] text-[#996800]"
+                            }`}
+                          >
+                            {a.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-xs text-[#50575e]">{a.word_count ?? 0}</td>
+                        <td className="py-3 px-4 text-xs text-[#50575e]">
+                          {a.published_at ? (
+                            <span>Terbit: {new Date(a.published_at).toLocaleDateString("id-ID")}</span>
+                          ) : (
+                            <span>Dibuat: {new Date(a.created_at).toLocaleDateString("id-ID")}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5 text-xs">
+                            {!isEn && !hasEnTranslation && (
+                              <button
+                                type="button"
+                                disabled={isTranslating}
+                                onClick={() => handleTranslate(a)}
+                                className="px-2 py-1 bg-purple-50 text-purple-700 border border-purple-300 rounded hover:bg-purple-100 transition disabled:opacity-50"
+                                title="Terjemahkan otomatis ke English menggunakan AI dan langsung buat artikel anak /en/"
+                              >
+                                {isTranslating ? "⏳ Translating..." : "🌐 Translate EN"}
+                              </button>
+                            )}
+                            {a.status !== "published" ? (
+                              <button
+                                type="button"
+                                disabled={busyId === a.id || isTranslating}
+                                onClick={() => patch(a.id, { status: "published" })}
+                                className="px-2.5 py-1 bg-[#008a20] text-white rounded hover:bg-[#007017] transition disabled:opacity-50"
+                              >
+                                Publish
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busyId === a.id || isTranslating}
+                                onClick={() => patch(a.id, { status: "draft" })}
+                                className="px-2.5 py-1 bg-[#f0f0f1] border border-[#c3c4c7] text-[#50575e] rounded hover:bg-[#e0e0e0] transition disabled:opacity-50"
+                              >
+                                Jadikan Draft
+                              </button>
+                            )}
+                            <Link
+                              href={`/admin/articles/${a.id}`}
+                              className="px-2.5 py-1 bg-[#2271b1] text-white rounded hover:bg-[#135e96] transition"
+                            >
+                              Edit
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  };
+
+                  const output: React.ReactNode[] = [];
+                  for (const parent of parentRows) {
+                    output.push(renderRow(parent, false));
+                    const children = childEnByParentId.get(parent.id) ?? [];
+                    for (const child of children) {
+                      output.push(renderRow(child, true));
+                    }
+                  }
+
+                  // Orphan ENs (created standalone)
+                  for (const orphan of orphanEnRows) {
+                    output.push(renderRow(orphan, false));
+                  }
+
+                  return output;
+                })()}
               </tbody>
             </table>
           </div>

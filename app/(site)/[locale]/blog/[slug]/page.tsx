@@ -394,10 +394,18 @@ export default async function ArticlePage({ params }: Props) {
 
           {related.length > 0 ? (
             <section className="mt-14 border-t border-line pt-8">
-              <h2 className="mb-6 text-xl font-semibold tracking-tight">
-                {en ? "Related articles" : "Artikel terkait"}
-              </h2>
-              <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  {en ? "Related Articles" : "Artikel Terkait"}
+                </h2>
+                <Link
+                  href={`/${locale}/blog`}
+                  className="text-xs font-semibold text-accent hover:underline"
+                >
+                  {en ? "View all articles →" : "Lihat semua artikel →"}
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                 {related.map((a) => (
                   <ArticleCard key={a.slug} article={a} locale={locale} />
                 ))}

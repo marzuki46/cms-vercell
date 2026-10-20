@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(sp.get("limit")) || 50, 200);
   const offset = Math.max(Number(sp.get("offset")) || 0, 0);
 
+  const selectFull =
+    "id,slug,title,status,language,translation_of,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id";
   const selectWithLang =
     "id,slug,title,status,language,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id";
   const selectWithoutLang =
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
   const sb = createAdminClient();
   let query = sb
     .from("articles")
-    .select(selectWithLang, { count: "exact" })
+    .select(selectFull, { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (status && STATUSES.includes(status as ArticleStatus)) {
@@ -41,6 +43,23 @@ export async function GET(request: NextRequest) {
   }
 
   let { data, count, error } = await query;
+  let finalArticles: Record<string, unknown>[] = (data as Record<string, unknown>[]) ?? [];
+
+  if (error && error.message.includes("translation_of")) {
+    let fallback = sb
+      .from("articles")
+      .select(selectWithLang, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (status && STATUSES.includes(status as ArticleStatus)) {
+      fallback = fallback.eq("status", status);
+    }
+    const res = await fallback;
+    finalArticles = (res.data as Record<string, unknown>[]) ?? [];
+    count = res.count;
+    error = res.error;
+  }
+
   if (error && error.message.includes("language")) {
     let fallbackQuery = sb
       .from("articles")
@@ -51,13 +70,16 @@ export async function GET(request: NextRequest) {
       fallbackQuery = fallbackQuery.eq("status", status);
     }
     const retry = await fallbackQuery;
-    data = (retry.data ?? []).map((row) => ({ ...row, language: "id" }));
+    finalArticles = ((retry.data as Record<string, unknown>[]) ?? []).map((row) => ({
+      ...row,
+      language: "id",
+    }));
     count = retry.count;
     error = retry.error;
   }
 
   if (error) return jsonError(error.message, 500);
-  return NextResponse.json({ articles: data ?? [], total: count ?? 0 });
+  return NextResponse.json({ articles: finalArticles, total: count ?? 0 });
 }
 
 export async function POST(request: NextRequest) {

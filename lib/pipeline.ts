@@ -290,7 +290,7 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
       previousSummary = sectionMd.slice(-600);
     }
 
-    let contentMd = `# ${outline.title}\n\n${parts.join("\n\n")}`;
+    let contentMd = parts.join("\n\n");
 
     // 3. SEO metadata
     const seoMsg = seoMetaPrompt(settings, {
