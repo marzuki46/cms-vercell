@@ -128,7 +128,7 @@ export async function PATCH(
 
   if (error) return jsonError(error.message, 500);
 
-  if (data.status === "published" && body.status === "published") {
+  if (data.status === "published") {
     revalidateArticle(data.slug);
   }
 

@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import Markdown from "@/components/markdown";
 import { apiGet, apiSend } from "@/lib/client-api";
+import { toSlug } from "@/lib/slug";
 
-interface GeneratedData {
+export interface GeneratedData {
   title: string;
+  slug?: string;
   seo_title: string;
   seo_description: string;
   excerpt: string;
@@ -15,7 +17,7 @@ interface GeneratedData {
 }
 
 interface Props {
-  onAccept: (data: GeneratedData) => void;
+  onAccept: (data: GeneratedData, language: "id" | "en") => void;
   onCancel: () => void;
 }
 
@@ -54,8 +56,14 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
 
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [translatingEn, setTranslatingEn] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previewData, setPreviewData] = useState<GeneratedData | null>(null);
+
+  // Hasil generate ID dan EN
+  const [idData, setIdData] = useState<GeneratedData | null>(null);
+  const [enData, setEnData] = useState<GeneratedData | null>(null);
+  const [viewLang, setViewLang] = useState<"id" | "en">("id");
+  const [dualPublishSuccess, setDualPublishSuccess] = useState<string | null>(null);
 
   // Load saved preferences & settings from DB & LocalStorage
   useEffect(() => {
@@ -125,7 +133,7 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
     }
   }
 
-  async function handleGenerate() {
+  async function handleGenerateId() {
     if (!topicOrParagraph.trim()) {
       setError("Masukkan topik artikel atau paragraf awal terlebih dahulu.");
       return;
@@ -133,7 +141,10 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
 
     setLoading(true);
     setError(null);
-    setPreviewData(null);
+    setIdData(null);
+    setEnData(null);
+    setViewLang("id");
+    setDualPublishSuccess(null);
 
     // Otomatis simpan preferensi prompt saat generate
     savePrompts();
@@ -154,7 +165,12 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
       );
 
       if (res.result) {
-        setPreviewData(res.result);
+        // Batasi slug ringkas padat kata kunci (max 5 kata)
+        const generatedSlug = toSlug(res.result.title, 5);
+        setIdData({
+          ...res.result,
+          slug: generatedSlug,
+        });
       } else {
         throw new Error("Respon generator kosong.");
       }
@@ -165,6 +181,81 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
     }
   }
 
+  async function handleGenerateEn() {
+    if (!idData) return;
+
+    setTranslatingEn(true);
+    setError(null);
+    try {
+      const res = await apiSend<{ success: boolean; result: GeneratedData }>(
+        "/api/admin/generate-en",
+        "POST",
+        {
+          idTitle: idData.title,
+          idContent: idData.content_md,
+          idExcerpt: idData.excerpt,
+          idKeywords: idData.keywords,
+          ctaText,
+          ctaTarget,
+        },
+      );
+
+      if (res.result) {
+        setEnData(res.result);
+        setViewLang("en");
+      } else {
+        throw new Error("Gagal menerima hasil terjemahan EN.");
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setTranslatingEn(false);
+    }
+  }
+
+  async function handlePublishBoth() {
+    if (!idData || !enData) return;
+    if (!confirm("Terbitkan langsung kedua artikel (ID dan EN) sekarang?")) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. Simpan artikel ID
+      const resId = await apiSend<{ article: { id: string; slug: string } }>("/api/admin/articles", "POST", {
+        title: idData.title,
+        slug: idData.slug || toSlug(idData.title, 5),
+        content_md: idData.content_md,
+        excerpt: idData.excerpt,
+        seo_title: idData.seo_title,
+        seo_description: idData.seo_description,
+        language: "id",
+        status: "published",
+      });
+
+      // 2. Simpan artikel EN
+      const resEn = await apiSend<{ article: { id: string; slug: string } }>("/api/admin/articles", "POST", {
+        title: enData.title,
+        slug: enData.slug || toSlug(enData.title, 5),
+        content_md: enData.content_md,
+        excerpt: enData.excerpt,
+        seo_title: enData.seo_title,
+        seo_description: enData.seo_description,
+        language: "en",
+        status: "published",
+      });
+
+      setDualPublishSuccess(
+        `✓ Sukses! Kedua artikel berhasil diterbitkan!\n🇮🇩 ID: /id/blog/${resId.article.slug}\n🇬🇧 EN: /en/blog/${resEn.article.slug}`,
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const activeData = viewLang === "en" ? enData : idData;
+
   return (
     <div className="flex flex-col gap-5 bg-white p-4 sm:p-6 rounded-lg border border-[#c3c4c7] shadow-sm">
       {/* Header */}
@@ -172,10 +263,10 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
         <div>
           <h2 className="text-lg font-bold text-[#1d2327] flex items-center gap-2">
             <span>⚡</span>
-            <span>Studio Generator Konten AI, Riset Entitas &amp; Pengarah Trafik CTA</span>
+            <span>Studio Generator Konten AI (Bilingual ID &amp; EN)</span>
           </h2>
           <p className="text-xs text-[#646970] mt-0.5">
-            Input topik, atur template prompt kata kunci &amp; data CTA penawaran, lalu tinjau hasilnya sebelum disimpan ke editor.
+            Generate artikel Indonesia, lalu klik tombol generate English (EN) dengan URL ringkas padat kata kunci.
           </p>
         </div>
         <button
@@ -199,8 +290,23 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
         </div>
       ) : null}
 
+      {dualPublishSuccess ? (
+        <div className="bg-[#edfaef] border-l-4 border-[#008a20] p-4 text-sm text-[#008a20] whitespace-pre-line rounded">
+          <strong>{dualPublishSuccess}</strong>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-1.5 bg-[#008a20] text-white text-xs font-bold rounded hover:bg-[#007017]"
+            >
+              Kembali ke Manajemen Pos
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Input Form Section */}
-      {!previewData ? (
+      {!idData ? (
         <div className="flex flex-col gap-5">
           {/* 1. Input Topik / Paragraf */}
           <div>
@@ -262,10 +368,6 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
                 Tersimpan Otomatis
               </span>
             </div>
-
-            <p className="text-xs text-[#004085] leading-relaxed">
-              AI akan otomatis memahami tujuan konversi artikel dan menyisipkan tombol/link penawaran yang terarah di tengah dan akhir artikel.
-            </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
@@ -349,18 +451,18 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
             <button
               type="button"
               disabled={loading}
-              onClick={handleGenerate}
+              onClick={handleGenerateId}
               className="px-6 py-2.5 text-sm font-bold bg-[#008a20] text-white rounded shadow-sm hover:bg-[#007017] transition disabled:opacity-60 flex items-center gap-2"
             >
               {loading ? (
                 <>
                   <span className="animate-spin">⚙️</span>
-                  <span>Sedang Mengembangkan Konten &amp; Merancang CTA…</span>
+                  <span>Sedang Mengembangkan Konten ID &amp; Merancang CTA…</span>
                 </>
               ) : (
                 <>
                   <span>🚀</span>
-                  <span>Generate Konten + CTA Terarah</span>
+                  <span>Generate Konten Versi Indonesia</span>
                 </>
               )}
             </button>
@@ -369,71 +471,149 @@ export default function AiContentStudio({ onAccept, onCancel }: Props) {
       ) : (
         /* Preview / ACC Section */
         <div className="flex flex-col gap-4 animate-fadeIn">
-          <div className="bg-[#f0f7ff] border border-[#cce5ff] p-4 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-bold text-[#004085] uppercase tracking-wider">
-                Pratinjau Hasil Generate AI ({previewData.word_count} kata · Termasuk Integrasi CTA)
+          {/* Top Bar with Language Tabs & Translation Button */}
+          <div className="bg-[#f0f7ff] border border-[#cce5ff] p-4 rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-[#004085] uppercase tracking-wider mr-2">
+                Pilih Bahasa Pratinjau:
               </span>
-              <h3 className="text-base font-bold text-[#1d2327] mt-0.5">
-                {previewData.title}
-              </h3>
+              <button
+                type="button"
+                onClick={() => setViewLang("id")}
+                className={`px-3 py-1.5 text-xs font-bold rounded transition ${
+                  viewLang === "id"
+                    ? "bg-[#2271b1] text-white shadow-sm"
+                    : "bg-white text-[#1d2327] border border-[#8c8f94] hover:bg-[#f0f0f1]"
+                }`}
+              >
+                🇮🇩 Versi Indonesia (ID)
+              </button>
+
+              {enData ? (
+                <button
+                  type="button"
+                  onClick={() => setViewLang("en")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded transition ${
+                    viewLang === "en"
+                      ? "bg-[#2271b1] text-white shadow-sm"
+                      : "bg-white text-[#1d2327] border border-[#8c8f94] hover:bg-[#f0f0f1]"
+                  }`}
+                >
+                  🇬🇧 Versi English (EN)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={translatingEn}
+                  onClick={handleGenerateEn}
+                  className="px-4 py-1.5 text-xs font-bold bg-[#72aee6] text-[#002a54] hover:bg-[#2271b1] hover:text-white rounded transition flex items-center gap-1.5 border border-[#2271b1]/30 disabled:opacity-60"
+                >
+                  {translatingEn ? (
+                    <>
+                      <span className="animate-spin">⚙️</span>
+                      <span>Menerjemahkan &amp; Optimasi SEO EN…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🌐</span>
+                      <span>Generate Versi Bahasa Inggris (EN)</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+
             <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setPreviewData(null)}
-                className="px-3.5 py-2 text-xs font-semibold border border-[#8c8f94] rounded bg-white hover:bg-[#f6f7f7]"
+                onClick={() => {
+                  setIdData(null);
+                  setEnData(null);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold border border-[#8c8f94] rounded bg-white hover:bg-[#f6f7f7]"
               >
-                🔄 Ubah / Generate Ulang
+                🔄 Buat Ulang
               </button>
-              <button
-                type="button"
-                onClick={() => onAccept(previewData)}
-                className="px-5 py-2 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1.5"
-              >
-                <span>✓</span>
-                <span>ACC &amp; Masukkan ke Editor</span>
-              </button>
+
+              {idData && enData ? (
+                <button
+                  type="button"
+                  onClick={handlePublishBoth}
+                  disabled={loading}
+                  className="px-4 py-1.5 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1"
+                >
+                  <span>🚀</span>
+                  <span>Terbitkan Sekaligus (ID + EN)</span>
+                </button>
+              ) : null}
             </div>
           </div>
 
-          {/* Keywords badges */}
-          {previewData.keywords.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-1.5 p-3 bg-[#f6f7f7] rounded border border-[#dcdcde]">
-              <span className="text-xs font-bold text-[#50575e] mr-1">Entitas Keyword Terdeteksi:</span>
-              {previewData.keywords.map((kw, i) => (
-                <span
-                  key={i}
-                  className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#e7f5ea] text-[#007017] border border-[#c3e6cb]"
-                >
-                  #{kw}
-                </span>
-              ))}
+          {/* Active Article Details */}
+          {activeData ? (
+            <div className="flex flex-col gap-3">
+              <div className="bg-[#f6f7f7] p-3 rounded border border-[#dcdcde] flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#50575e] uppercase">
+                    Judul ({viewLang.toUpperCase()}) · {activeData.word_count} kata
+                  </span>
+                  <span className="text-[11px] font-mono bg-white px-2 py-0.5 rounded border border-[#c3c4c7] text-[#2271b1]">
+                    URL Slug: /{viewLang}/blog/<strong>{activeData.slug || toSlug(activeData.title, 5)}</strong>
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-[#1d2327]">
+                  {activeData.title}
+                </h3>
+              </div>
+
+              {/* Keywords badges */}
+              {activeData.keywords.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 p-2.5 bg-[#f6f7f7] rounded border border-[#dcdcde]">
+                  <span className="text-xs font-bold text-[#50575e] mr-1">Kata Kunci Utama:</span>
+                  {activeData.keywords.map((kw, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#e7f5ea] text-[#007017] border border-[#c3e6cb]"
+                    >
+                      #{kw}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Article Body Preview */}
+              <div className="border border-[#c3c4c7] rounded-lg p-5 max-h-[480px] overflow-y-auto bg-white article-body">
+                <Markdown content={activeData.content_md} />
+              </div>
+
+              {/* Bottom ACC Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#dcdcde]">
+                <div className="flex items-center gap-2">
+                  {!enData && (
+                    <button
+                      type="button"
+                      disabled={translatingEn}
+                      onClick={handleGenerateEn}
+                      className="px-4 py-2 text-xs font-bold bg-[#f0f7ff] border border-[#2271b1] text-[#2271b1] hover:bg-[#2271b1] hover:text-white rounded transition flex items-center gap-1.5"
+                    >
+                      {translatingEn ? "Sedang Menerjemahkan ke EN…" : "🌐 Lanjut Generate ke Bahasa EN"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onAccept(activeData, viewLang)}
+                    className="px-5 py-2 text-xs font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-1.5"
+                  >
+                    <span>✓</span>
+                    <span>ACC &amp; Masukkan Versi {viewLang.toUpperCase()} ke Editor</span>
+                  </button>
+                </div>
+              </div>
             </div>
           ) : null}
-
-          {/* Article Body Preview */}
-          <div className="border border-[#c3c4c7] rounded-lg p-5 max-h-[500px] overflow-y-auto bg-white article-body">
-            <Markdown content={previewData.content_md} />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-[#dcdcde]">
-            <button
-              type="button"
-              onClick={() => setPreviewData(null)}
-              className="px-4 py-2 text-sm font-medium border border-[#c3c4c7] rounded hover:bg-[#f6f7f7]"
-            >
-              Kembali Edit Prompt &amp; CTA
-            </button>
-            <button
-              type="button"
-              onClick={() => onAccept(previewData)}
-              className="px-6 py-2 text-sm font-bold bg-[#008a20] text-white rounded hover:bg-[#007017] shadow-sm flex items-center gap-2"
-            >
-              <span>✓</span>
-              <span>ACC &amp; Masukkan ke Editor Form</span>
-            </button>
-          </div>
         </div>
       )}
     </div>

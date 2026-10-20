@@ -17,11 +17,6 @@ const PUBLIC_PATHS = [
 
 /**
  * Flush every cache that feeds the public site.
- *
- * `revalidatePath` alone is not enough: the public pages read through
- * `unstable_cache` (data cache), which survives path revalidation. Without
- * `revalidateTag("articles")` a freshly published post would stay invisible on
- * the homepage until the 300s data-cache window expired.
  */
 export function revalidateArticles(slug?: string) {
   safeTag("articles");
@@ -33,12 +28,22 @@ export function revalidateArticles(slug?: string) {
   }
   safePath("/id/blog/page/2");
   safePath("/en/blog/page/2");
+  try {
+    revalidatePath("/", "layout");
+  } catch {
+    // outside a request scope
+  }
 }
 
 export function revalidateSettings() {
   safeTag("settings");
   safeTag("articles");
   for (const path of PUBLIC_PATHS) safePath(path);
+  try {
+    revalidatePath("/", "layout");
+  } catch {
+    // outside a request scope
+  }
 }
 
 /** Rebuild every blog pagination page after an insert/delete. */
@@ -53,7 +58,8 @@ export function revalidatePagination(totalPages: number) {
 
 function safeTag(tag: string) {
   try {
-    revalidateTag(tag, "max");
+    // Call revalidateTag to immediately purge tag from data cache
+    (revalidateTag as unknown as (t: string) => void)(tag);
   } catch {
     // outside a request scope (e.g. cron) — ignore
   }

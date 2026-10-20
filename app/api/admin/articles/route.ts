@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
 
   let body: {
     title?: string;
+    slug?: string;
     content_md?: string;
     excerpt?: string;
     seo_title?: string;
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
   const reading_time = readingTimeMinutes(word_count);
 
   const sb = createAdminClient();
-  const baseSlug = toSlug(title) || "artikel-baru";
+  const baseSlug = toSlug(body.slug || title) || "artikel-baru";
 
   // Check unique slug
   const { data: existing } = await sb

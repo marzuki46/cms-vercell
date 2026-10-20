@@ -111,14 +111,20 @@ export const getPublishedArticles = unstable_cache(
       return (data ?? []) as unknown as ArticleListItem[];
     }
 
+    if (locale === DEFAULT_LOCALE || locale === "id") {
+      const { data, error } = await build().or("language.eq.id,language.is.null");
+      if (!error && data && data.length > 0) {
+        return data as unknown as ArticleListItem[];
+      }
+      // Fallback for legacy database without language column or unassigned language
+      const fallback = await build();
+      return (fallback.data ?? []) as unknown as ArticleListItem[];
+    }
+
+    // Strict check for English locale
     const { data, error } = await build().eq("language", locale);
     if (!error) return (data ?? []) as unknown as ArticleListItem[];
-
-    // When column 'language' does not exist yet, only default locale ('id') has legacy articles.
-    if (locale !== DEFAULT_LOCALE) return [];
-    const fallback = await build();
-    if (fallback.error) return [];
-    return (fallback.data ?? []) as unknown as ArticleListItem[];
+    return [];
   },
   ["published-articles"],
   { revalidate: 300, tags: ["articles"] },
@@ -140,12 +146,16 @@ export const getPublishedCount = unstable_cache(
       return error ? 0 : count ?? 0;
     }
 
+    if (locale === DEFAULT_LOCALE || locale === "id") {
+      const filtered = await head().or("language.eq.id,language.is.null");
+      if (!filtered.error && (filtered.count ?? 0) > 0) return filtered.count ?? 0;
+      const { count } = await head();
+      return count ?? 0;
+    }
+
     const filtered = await head().eq("language", locale);
     if (!filtered.error) return filtered.count ?? 0;
-
-    if (locale !== DEFAULT_LOCALE) return 0;
-    const { count } = await head();
-    return count ?? 0;
+    return 0;
   },
   ["published-count"],
   { revalidate: 300, tags: ["articles"] },
@@ -169,15 +179,20 @@ export const getPublishedSlugs = unstable_cache(
       return (data ?? []).map((r) => r.slug as string);
     }
 
+    if (locale === DEFAULT_LOCALE || locale === "id") {
+      const filtered = await build().or("language.eq.id,language.is.null");
+      if (!filtered.error && filtered.data && filtered.data.length > 0) {
+        return (filtered.data ?? []).map((r) => r.slug as string);
+      }
+      const { data } = await build();
+      return (data ?? []).map((r) => r.slug as string);
+    }
+
     const filtered = await build().eq("language", locale);
     if (!filtered.error) {
       return (filtered.data ?? []).map((r) => r.slug as string);
     }
-
-    if (locale !== DEFAULT_LOCALE) return [];
-    const { data, error } = await build();
-    if (error) return [];
-    return (data ?? []).map((r) => r.slug as string);
+    return [];
   },
   ["published-slugs"],
   { revalidate: 300, tags: ["articles"] },
@@ -200,12 +215,16 @@ export const getArticleBySlug = unstable_cache(
       return (data as Article) ?? null;
     }
 
-    const localized = await build().eq("language", locale).maybeSingle();
-    if (localized.error) {
-      if (locale !== DEFAULT_LOCALE) return null;
+    if (locale === DEFAULT_LOCALE || locale === "id") {
+      const localized = await build().or("language.eq.id,language.is.null").maybeSingle();
+      if (!localized.error && localized.data) {
+        return localized.data as Article;
+      }
       const { data } = await build().maybeSingle();
       return (data as Article) ?? null;
     }
+
+    const localized = await build().eq("language", locale).maybeSingle();
     return (localized.data as Article) ?? null;
   },
   ["article-by-slug"],

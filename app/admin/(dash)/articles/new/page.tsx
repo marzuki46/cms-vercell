@@ -4,14 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import VisualHtmlEditor from "@/components/admin/visual-html-editor";
-import AiContentStudio from "@/components/admin/ai-content-studio";
+import AiContentStudio, { type GeneratedData } from "@/components/admin/ai-content-studio";
 import { apiGet, apiSend } from "@/lib/client-api";
+import { toSlug } from "@/lib/slug";
 import type { Article } from "@/types/db";
 
 export default function NewArticleEditor() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"write" | "ai_studio">("write");
   const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [language, setLanguage] = useState<"id" | "en">("id");
   const [content, setContent] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [seoTitle, setSeoTitle] = useState("");
@@ -42,20 +45,18 @@ export default function NewArticleEditor() {
     };
   }, []);
 
-  function handleAcceptAi(data: {
-    title: string;
-    content_md: string;
-    excerpt: string;
-    seo_title: string;
-    seo_description: string;
-  }) {
+  function handleAcceptAi(data: GeneratedData, lang: "id" | "en") {
     setTitle(data.title);
+    setSlug(data.slug || toSlug(data.title, 5));
     setContent(data.content_md);
     setExcerpt(data.excerpt);
     setSeoTitle(data.seo_title);
     setSeoDesc(data.seo_description);
+    setLanguage(lang);
     setActiveTab("write");
-    setAiNotice("✓ Konten hasil generate AI berhasil dimasukkan ke formulir! Anda bisa menyuntingnya lebih lanjut, menambahkan thumbnail/gambar, lalu menerbitkannya.");
+    setAiNotice(
+      `✓ Konten hasil generate AI (${lang.toUpperCase()}) berhasil dimasukkan ke formulir! Anda bisa menyuntingnya lebih lanjut, menambahkan thumbnail, lalu menerbitkannya.`,
+    );
   }
 
   async function save(status: "draft" | "published" = "draft") {
@@ -69,11 +70,13 @@ export default function NewArticleEditor() {
     try {
       const res = await apiSend<{ article: Article }>("/api/admin/articles", "POST", {
         title: title.trim(),
+        slug: slug.trim() || toSlug(title.trim(), 5),
         content_md: content,
         excerpt: excerpt.trim() || undefined,
         seo_title: seoTitle.trim() || undefined,
         seo_description: seoDesc.trim() || undefined,
         author: author.trim() || "Admin",
+        language,
         status,
       });
 
@@ -145,7 +148,7 @@ export default function NewArticleEditor() {
           }`}
         >
           <span>⚡</span>
-          <span>Tool Generate AI &amp; Riset Entitas</span>
+          <span>Tool Generate AI &amp; Riset Entitas (ID &amp; EN)</span>
         </button>
       </div>
 
@@ -186,7 +189,10 @@ export default function NewArticleEditor() {
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    if (!slug) setSlug(toSlug(e.target.value, 5));
+                  }}
                   placeholder="Tambahkan judul artikel di sini..."
                   className="w-full text-lg font-bold px-3 py-2 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1] focus:ring-1 focus:ring-[#2271b1]"
                 />
@@ -220,6 +226,41 @@ export default function NewArticleEditor() {
               <h2 className="text-sm font-bold text-[#1d2327] border-b border-[#dcdcde] pb-2">
                 Metadata &amp; Penulis
               </h2>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1d2327] mb-1">
+                  Bahasa Artikel (Language)
+                </label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as "id" | "en")}
+                  className="w-full text-sm px-2.5 py-1.5 border border-[#8c8f94] rounded focus:outline-none focus:border-[#2271b1] bg-white font-semibold"
+                >
+                  <option value="id">🇮🇩 Bahasa Indonesia (/id/blog/...)</option>
+                  <option value="en">🇬🇧 English (/en/blog/...)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-[#646970] mb-1">
+                  URL Slug (Ringkas &amp; Padat Keyword)
+                </label>
+                <div className="flex items-center">
+                  <span className="text-xs text-gray-500 bg-[#f0f0f1] px-2 py-1.5 border border-r-0 border-[#8c8f94] rounded-l">
+                    /{language}/blog/
+                  </span>
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e) => setSlug(toSlug(e.target.value, 5))}
+                    placeholder="slug-padat-keyword"
+                    className="w-full text-xs font-mono px-2 py-1.5 border border-[#8c8f94] rounded-r focus:outline-none focus:border-[#2271b1]"
+                  />
+                </div>
+                <p className="text-[10px] text-[#646970] mt-1">
+                  Dibatasi otomatis 4-5 kata kunci inti tanpa kata hubung untuk performa SEO maksimal.
+                </p>
+              </div>
 
               <div>
                 <label className="block text-xs text-[#646970] mb-1">

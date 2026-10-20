@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import VisualHtmlEditor from "@/components/admin/visual-html-editor";
 import SeoChecklist from "@/components/admin/seo-checklist";
@@ -8,9 +9,11 @@ import { apiGet, apiSend } from "@/lib/client-api";
 import type { Article } from "@/types/db";
 
 export default function ArticleEditor({ id }: { id: string }) {
+  const router = useRouter();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingEn, setGeneratingEn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
@@ -79,6 +82,44 @@ export default function ArticleEditor({ id }: { id: string }) {
     }
   }
 
+  async function handleGenerateEn() {
+    if (!article) return;
+    setGeneratingEn(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await apiSend<{ success: boolean; result: any }>(
+        "/api/admin/generate-en",
+        "POST",
+        {
+          idTitle: article.title,
+          idContent: article.content_md,
+          idExcerpt: article.excerpt,
+          idKeywords: article.keywords,
+        },
+      );
+      if (res.result) {
+        const created = await apiSend<{ article: Article }>("/api/admin/articles", "POST", {
+          title: res.result.title,
+          slug: res.result.slug,
+          content_md: res.result.content_md,
+          excerpt: res.result.excerpt,
+          seo_title: res.result.seo_title,
+          seo_description: res.result.seo_description,
+          language: "en",
+          status: article.status,
+          author: article.author || "Admin",
+        });
+        setNotice("✓ Versi English berhasil dibuat! Mengalihkan ke editor artikel EN...");
+        router.push(`/admin/articles/${created.article.id}`);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGeneratingEn(false);
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted">Memuat…</p>;
   if (!article)
     return (
@@ -110,6 +151,26 @@ export default function ArticleEditor({ id }: { id: string }) {
           >
             {saving ? "Menyimpan…" : "Simpan"}
           </button>
+          {article.language !== "en" && (
+            <button
+              type="button"
+              onClick={handleGenerateEn}
+              disabled={generatingEn || saving}
+              className="rounded-md border border-[#2271b1] text-[#2271b1] hover:bg-[#2271b1] hover:text-white px-3.5 py-2 text-sm font-semibold transition disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {generatingEn ? (
+                <>
+                  <span className="animate-spin">⚙️</span>
+                  <span>Menerjemahkan ke EN…</span>
+                </>
+              ) : (
+                <>
+                  <span>🌐</span>
+                  <span>Buat Versi English (EN)</span>
+                </>
+              )}
+            </button>
+          )}
           {article.status !== "published" ? (
             <button
               type="button"
