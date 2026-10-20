@@ -6,6 +6,7 @@ export const OPTIONAL_COLUMNS = [
   "whatsapp_message",
   "theme_template",
   "google_site_verification",
+  "home_copy",
 ] as const;
 
 export type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
@@ -19,6 +20,8 @@ const SQL_FOR_COLUMN: Record<OptionalColumn, string> = {
     "alter table public.settings add column if not exists theme_template text not null default 'modern';",
   google_site_verification:
     "alter table public.settings add column if not exists google_site_verification text;",
+  home_copy:
+    "alter table public.settings add column if not exists home_copy jsonb;",
 };
 
 let cache: Record<OptionalColumn, boolean> | null = null;

@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, "id" | "updated_at"> = {
   default_author: "Admin",
   whatsapp_number: null,
   whatsapp_message: null,
+  home_copy: null,
 };
 
 function localSettings(): Settings {
@@ -47,6 +48,19 @@ function withDefaults(
   if (!present.google_site_verification) merged.google_site_verification = null;
   if (!present.whatsapp_number) merged.whatsapp_number = null;
   if (!present.whatsapp_message) merged.whatsapp_message = null;
+  if (present.home_copy && row.home_copy) {
+    merged.home_copy = row.home_copy as any;
+  } else if (
+    row.brand_voice &&
+    typeof row.brand_voice === "string" &&
+    row.brand_voice.startsWith("__HOME_COPY__:")
+  ) {
+    try {
+      merged.home_copy = JSON.parse(row.brand_voice.slice(14));
+    } catch {
+      merged.home_copy = null;
+    }
+  }
   merged.ninerouter_key = (row.ninerouter_key as string | null) ?? null;
   return merged;
 }
@@ -66,6 +80,7 @@ export async function getSettings(): Promise<Settings> {
         whatsapp_message: false,
         theme_template: false,
         google_site_verification: false,
+        home_copy: false,
       };
     }
 
@@ -127,6 +142,11 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   void id;
   void updated_at;
   void created_at;
+
+  if (!present.home_copy && rest.home_copy) {
+    rest.brand_voice = `__HOME_COPY__:${JSON.stringify(rest.home_copy)}`;
+    delete rest.home_copy;
+  }
 
   for (const [name, ok] of Object.entries(present)) {
     if (!ok) delete rest[name];

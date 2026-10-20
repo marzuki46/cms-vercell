@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole, env } from "@/lib/env";
 import { availableColumns } from "@/lib/settings-schema";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
-import type { Article, ArticleListItem, Author, Category } from "@/types/db";
+import type { Article, ArticleListItem, Author, Category, HomeCopy } from "@/types/db";
 
 const LIST_COLUMNS =
   "slug,title,excerpt,published_at,cover_image_url,reading_time_minutes,keywords,author,category_slug";
@@ -15,6 +15,7 @@ export interface SiteSettings {
   language: string;
   theme_template: "modern" | "editorial" | "minimal";
   google_site_verification: string | null;
+  home_copy?: HomeCopy | null;
 }
 
 const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
@@ -26,6 +27,7 @@ function fallbackSiteSettings(): SiteSettings {
     language: "id",
     theme_template: "modern",
     google_site_verification: env.googleSiteVerification || null,
+    home_copy: null,
   };
 }
 
@@ -37,8 +39,10 @@ async function loadSiteSettings(): Promise<SiteSettings> {
     "site_name",
     "site_url",
     "language",
+    "brand_voice",
     ...(present.theme_template ? ["theme_template"] : []),
     ...(present.google_site_verification ? ["google_site_verification"] : []),
+    ...(present.home_copy ? ["home_copy"] : []),
   ].join(",");
 
   const { data, error } = await sb
@@ -52,6 +56,21 @@ async function loadSiteSettings(): Promise<SiteSettings> {
   if (!data) return fallbackSiteSettings();
 
   const row = data as unknown as Record<string, unknown>;
+  let home_copy: HomeCopy | null = null;
+  if (present.home_copy && row.home_copy) {
+    home_copy = row.home_copy as HomeCopy;
+  } else if (
+    row.brand_voice &&
+    typeof row.brand_voice === "string" &&
+    row.brand_voice.startsWith("__HOME_COPY__:")
+  ) {
+    try {
+      home_copy = JSON.parse(row.brand_voice.slice(14));
+    } catch {
+      home_copy = null;
+    }
+  }
+
   return {
     site_name: (row.site_name as string | null) || fallbackSiteSettings().site_name,
     site_url: (row.site_url as string | null) ?? null,
@@ -62,6 +81,7 @@ async function loadSiteSettings(): Promise<SiteSettings> {
       (row.google_site_verification as string | null) ||
       env.googleSiteVerification ||
       null,
+    home_copy,
   };
 }
 

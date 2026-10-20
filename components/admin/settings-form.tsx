@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiSend } from "@/lib/client-api";
-import type { Settings } from "@/types/db";
+import type { Settings, HomeCopyLocale } from "@/types/db";
 
 type Form = Omit<Settings, "id" | "updated_at">;
 
@@ -25,6 +25,7 @@ const EMPTY: Form = {
   default_author: "",
   whatsapp_number: "",
   whatsapp_message: "",
+  home_copy: null,
 };
 
 const FIELD =
@@ -33,6 +34,7 @@ const LABEL = "text-[#50575e] font-semibold text-xs uppercase tracking-wide";
 
 const TABS = [
   { id: "general", label: "Umum", icon: "🌐" },
+  { id: "homepage", label: "Teks Beranda (Home Copy)", icon: "🏠" },
   { id: "content", label: "Konten & AI", icon: "🤖" },
   { id: "seo", label: "SEO & Search", icon: "🔍" },
   { id: "whatsapp", label: "WhatsApp", icon: "💬" },
@@ -43,6 +45,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function SettingsForm() {
   const [tab, setTab] = useState<TabId>("general");
+  const [homeCopyLang, setHomeCopyLang] = useState<"id" | "en">("id");
   const [form, setForm] = useState<Form>(EMPTY);
   const [hasKey, setHasKey] = useState(false);
   const [keyPreview, setKeyPreview] = useState<string | null>(null);
@@ -119,6 +122,23 @@ export default function SettingsForm() {
 
   function set<K extends keyof Form>(key: K, value: Form[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function getCopyField(field: keyof HomeCopyLocale): string {
+    return form.home_copy?.[homeCopyLang]?.[field] ?? "";
+  }
+
+  function setCopyField(field: keyof HomeCopyLocale, value: string) {
+    setForm((f) => ({
+      ...f,
+      home_copy: {
+        ...f.home_copy,
+        [homeCopyLang]: {
+          ...(f.home_copy?.[homeCopyLang] ?? {}),
+          [field]: value,
+        },
+      },
+    }));
   }
 
   async function save() {
@@ -268,6 +288,219 @@ export default function SettingsForm() {
                   className={FIELD}
                 />
               </label>
+            </div>
+          </div>
+        ) : null}
+
+        {tab === "homepage" ? (
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between pb-3 border-b border-[#dcdcde] gap-3">
+              <div>
+                <h2 className="text-base font-bold text-[#1d2327]">Kustomisasi Kata-Kata Beranda</h2>
+                <p className="text-xs text-[#646970]">
+                  Ubah seluruh teks judul, subjudul, tombol, dan pilar keunggulan yang tampil di halaman depan website Anda.
+                </p>
+              </div>
+
+              {/* Locale Selector */}
+              <div className="flex items-center gap-1.5 bg-[#f0f0f1] p-1 rounded border border-[#dcdcde]">
+                <button
+                  type="button"
+                  onClick={() => setHomeCopyLang("id")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded transition ${
+                    homeCopyLang === "id"
+                      ? "bg-white text-[#2271b1] shadow-sm"
+                      : "text-[#50575e] hover:text-[#1d2327]"
+                  }`}
+                >
+                  🇮🇩 Versi Indonesia (/id)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHomeCopyLang("en")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded transition ${
+                    homeCopyLang === "en"
+                      ? "bg-white text-[#2271b1] shadow-sm"
+                      : "text-[#50575e] hover:text-[#1d2327]"
+                  }`}
+                >
+                  🇬🇧 Versi English (/en)
+                </button>
+              </div>
+            </div>
+
+            {/* Section 1: Hero Section */}
+            <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+                1. Bagian Hero (Headline Utama)
+              </span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Badge Atas (Pill Text)</span>
+                  <input
+                    value={getCopyField("hero_badge")}
+                    onChange={(e) => setCopyField("hero_badge", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Portal Pengetahuan & Wawasan Resmi" : "Official Publication Portal"}
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Label Tombol Jelajahi (Primary Button)</span>
+                  <input
+                    value={getCopyField("explore_button")}
+                    onChange={(e) => setCopyField("explore_button", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Jelajahi Semua Artikel" : "Explore All Articles"}
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>Judul Utama Hero (H1)</span>
+                  <input
+                    value={getCopyField("hero_title")}
+                    onChange={(e) => setCopyField("hero_title", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Informasi Terpercaya & Panduan Mendalam dari..." : "Insights & Comprehensive Guides by..."}
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>Deskripsi Sambutan Hero</span>
+                  <textarea
+                    rows={3}
+                    value={getCopyField("hero_subtitle")}
+                    onChange={(e) => setCopyField("hero_subtitle", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Selamat datang di website kami..." : "Welcome to our publication..."}
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Label Tombol Chat WhatsApp</span>
+                  <input
+                    value={getCopyField("chat_button")}
+                    onChange={(e) => setCopyField("chat_button", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Konsultasi Cepat via WhatsApp" : "Chat via WhatsApp"}
+                    className={FIELD}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Section 2: Why Choose Us / Pillars */}
+            <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+                2. Bagian Keunggulan &amp; Nilai Tambah (Why Choose Us)
+              </span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Judul Bagian Keunggulan (Why Title)</span>
+                  <input
+                    value={getCopyField("why_title")}
+                    onChange={(e) => setCopyField("why_title", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Kenapa Membaca di Sini?" : "Why Read on Our Site?"}
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Subjudul Bagian Keunggulan</span>
+                  <input
+                    value={getCopyField("why_subtitle")}
+                    onChange={(e) => setCopyField("why_subtitle", e.target.value)}
+                    placeholder="Standar kualitas dan komitmen editorial kami..."
+                    className={FIELD}
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3 pt-2">
+                {/* Pilar 1 */}
+                <div className="bg-white p-3 rounded border border-[#dcdcde] flex flex-col gap-2">
+                  <span className="text-xs font-bold text-[#1d2327]">Pilar 1 (📚)</span>
+                  <input
+                    value={getCopyField("pillar1_title")}
+                    onChange={(e) => setCopyField("pillar1_title", e.target.value)}
+                    placeholder="Judul Pilar 1"
+                    className="text-xs font-semibold px-2.5 py-1.5 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1]"
+                  />
+                  <textarea
+                    rows={2}
+                    value={getCopyField("pillar1_desc")}
+                    onChange={(e) => setCopyField("pillar1_desc", e.target.value)}
+                    placeholder="Penjelasan pilar 1..."
+                    className="text-xs px-2.5 py-1.5 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1]"
+                  />
+                </div>
+
+                {/* Pilar 2 */}
+                <div className="bg-white p-3 rounded border border-[#dcdcde] flex flex-col gap-2">
+                  <span className="text-xs font-bold text-[#1d2327]">Pilar 2 (🎯)</span>
+                  <input
+                    value={getCopyField("pillar2_title")}
+                    onChange={(e) => setCopyField("pillar2_title", e.target.value)}
+                    placeholder="Judul Pilar 2"
+                    className="text-xs font-semibold px-2.5 py-1.5 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1]"
+                  />
+                  <textarea
+                    rows={2}
+                    value={getCopyField("pillar2_desc")}
+                    onChange={(e) => setCopyField("pillar2_desc", e.target.value)}
+                    placeholder="Penjelasan pilar 2..."
+                    className="text-xs px-2.5 py-1.5 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1]"
+                  />
+                </div>
+
+                {/* Pilar 3 */}
+                <div className="bg-white p-3 rounded border border-[#dcdcde] flex flex-col gap-2">
+                  <span className="text-xs font-bold text-[#1d2327]">Pilar 3 (⚡)</span>
+                  <input
+                    value={getCopyField("pillar3_title")}
+                    onChange={(e) => setCopyField("pillar3_title", e.target.value)}
+                    placeholder="Judul Pilar 3"
+                    className="text-xs font-semibold px-2.5 py-1.5 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1]"
+                  />
+                  <textarea
+                    rows={2}
+                    value={getCopyField("pillar3_desc")}
+                    onChange={(e) => setCopyField("pillar3_desc", e.target.value)}
+                    placeholder="Penjelasan pilar 3..."
+                    className="text-xs px-2.5 py-1.5 border border-[#8c8f94] rounded outline-none focus:border-[#2271b1]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Bottom Call-To-Action Banner */}
+            <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+                3. Banner Ajakan Bertindak Bawah (Bottom CTA)
+              </span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Judul Banner CTA</span>
+                  <input
+                    value={getCopyField("cta_title")}
+                    onChange={(e) => setCopyField("cta_title", e.target.value)}
+                    placeholder={homeCopyLang === "id" ? "Ada Pertanyaan atau Mau Konsultasi?" : "Questions or Inquiries?"}
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Subjudul / Deskripsi Banner CTA</span>
+                  <input
+                    value={getCopyField("cta_subtitle")}
+                    onChange={(e) => setCopyField("cta_subtitle", e.target.value)}
+                    placeholder="Tim kami siap membantu menjawab pertanyaan Anda..."
+                    className={FIELD}
+                  />
+                </label>
+              </div>
             </div>
           </div>
         ) : null}

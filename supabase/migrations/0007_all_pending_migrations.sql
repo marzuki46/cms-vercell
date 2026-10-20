@@ -4,12 +4,13 @@
 -- Script ini 100% IDEMPOTENT (aman dijalankan berkali-kali).
 -- ============================================================================
 
--- 1. Optional Settings Columns (0003)
+-- 1. Optional Settings Columns (0003 & Home Copy)
 alter table public.settings
   add column if not exists theme_template text not null default 'modern',
   add column if not exists google_site_verification text,
   add column if not exists whatsapp_number text,
-  add column if not exists whatsapp_message text;
+  add column if not exists whatsapp_message text,
+  add column if not exists home_copy jsonb;
 
 update public.settings
 set theme_template = 'modern'

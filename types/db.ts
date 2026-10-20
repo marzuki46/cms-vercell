@@ -4,6 +4,29 @@ export type JobStatus = "running" | "success" | "error";
 export type JobType = "brainstorm" | "generate" | "publish";
 export type LeadStatus = "new" | "contacted" | "closed";
 
+export interface HomeCopyLocale {
+  hero_badge?: string;
+  hero_title?: string;
+  hero_subtitle?: string;
+  explore_button?: string;
+  chat_button?: string;
+  why_title?: string;
+  why_subtitle?: string;
+  pillar1_title?: string;
+  pillar1_desc?: string;
+  pillar2_title?: string;
+  pillar2_desc?: string;
+  pillar3_title?: string;
+  pillar3_desc?: string;
+  cta_title?: string;
+  cta_subtitle?: string;
+}
+
+export interface HomeCopy {
+  id?: HomeCopyLocale;
+  en?: HomeCopyLocale;
+}
+
 export interface Settings {
   id: string;
   site_name: string | null;
@@ -11,6 +34,7 @@ export interface Settings {
   language: string;
   theme_template?: "modern" | "editorial" | "minimal";
   google_site_verification?: string | null;
+  home_copy?: HomeCopy | null;
   ninerouter_url: string | null;
   ninerouter_key: string | null;
   model_writer: string;
