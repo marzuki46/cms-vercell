@@ -18,6 +18,9 @@ export const getPublishedCount = unstable_cache(
       .eq("language", locale);
     if (!filtered.error) return filtered.count ?? 0;
 
+    // If column 'language' does not exist yet, only the default locale ('id') has legacy articles.
+    if (locale !== DEFAULT_LOCALE) return 0;
+
     const { count } = await sb
       .from("articles")
       .select("id", { count: "exact", head: true })
@@ -56,7 +59,9 @@ export const getPublishedArticles = unstable_cache(
     const filtered = await base().eq("language", locale);
     if (!filtered.error) return filtered.data ?? [];
 
-    // Column not migrated yet: fall back to all published articles.
+    // If column 'language' does not exist yet, only 'id' has articles. 'en' has none.
+    if (locale !== DEFAULT_LOCALE) return [];
+
     const { data, error } = await base();
     if (error) return [];
     return data ?? [];

@@ -29,8 +29,14 @@ interface Props {
 }
 
 export async function generateStaticParams() {
-  const slugs = await getPublishedSlugs();
-  return ["id", "en"].flatMap((locale) => slugs.map((slug) => ({ locale, slug })));
+  const [idSlugs, enSlugs] = await Promise.all([
+    getPublishedSlugs("id"),
+    getPublishedSlugs("en"),
+  ]);
+  return [
+    ...idSlugs.map((slug) => ({ locale: "id", slug })),
+    ...enSlugs.map((slug) => ({ locale: "en", slug })),
+  ];
 }
 
 function baseUrl() {
@@ -43,16 +49,20 @@ async function alternatesFor(
   base: string,
   current: Locale,
 ): Promise<Record<string, string> | undefined> {
-  const slugs = await getPublishedSlugs();
+  const [idSlugs, enSlugs] = await Promise.all([
+    getPublishedSlugs("id"),
+    getPublishedSlugs("en"),
+  ]);
+  const hasId = idSlugs.includes(slug);
+  const hasEn = enSlugs.includes(slug);
+
   const out: Record<string, string> = {};
-  for (const locale of ["id", "en"] as const) {
-    if (locale !== current && slugs.includes(slug)) {
-      out[locale] = `${base}/${locale}/blog/${slug}`;
-    }
-  }
-  out[current] = `${base}/${current}/blog/${slug}`;
-  out["x-default"] = `${base}/${DEFAULT_LOCALE}/blog/${slug}`;
-  return out;
+  if (hasId) out["id"] = `${base}/id/blog/${slug}`;
+  if (hasEn) out["en"] = `${base}/en/blog/${slug}`;
+  if (hasId) out["x-default"] = `${base}/id/blog/${slug}`;
+  else if (hasEn) out["x-default"] = `${base}/en/blog/${slug}`;
+
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

@@ -3,6 +3,7 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole, env } from "@/lib/env";
 import { availableColumns } from "@/lib/settings-schema";
+import { DEFAULT_LOCALE } from "@/lib/i18n";
 import type { Article, ArticleListItem, Author, Category } from "@/types/db";
 
 const LIST_COLUMNS =
@@ -113,6 +114,8 @@ export const getPublishedArticles = unstable_cache(
     const { data, error } = await build().eq("language", locale);
     if (!error) return (data ?? []) as unknown as ArticleListItem[];
 
+    // When column 'language' does not exist yet, only default locale ('id') has legacy articles.
+    if (locale !== DEFAULT_LOCALE) return [];
     const fallback = await build();
     if (fallback.error) return [];
     return (fallback.data ?? []) as unknown as ArticleListItem[];
@@ -140,6 +143,7 @@ export const getPublishedCount = unstable_cache(
     const filtered = await head().eq("language", locale);
     if (!filtered.error) return filtered.count ?? 0;
 
+    if (locale !== DEFAULT_LOCALE) return 0;
     const { count } = await head();
     return count ?? 0;
   },
@@ -170,6 +174,7 @@ export const getPublishedSlugs = unstable_cache(
       return (filtered.data ?? []).map((r) => r.slug as string);
     }
 
+    if (locale !== DEFAULT_LOCALE) return [];
     const { data, error } = await build();
     if (error) return [];
     return (data ?? []).map((r) => r.slug as string);
@@ -197,6 +202,7 @@ export const getArticleBySlug = unstable_cache(
 
     const localized = await build().eq("language", locale).maybeSingle();
     if (localized.error) {
+      if (locale !== DEFAULT_LOCALE) return null;
       const { data } = await build().maybeSingle();
       return (data as Article) ?? null;
     }
