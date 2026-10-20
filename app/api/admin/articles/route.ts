@@ -25,20 +25,37 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(sp.get("limit")) || 50, 200);
   const offset = Math.max(Number(sp.get("offset")) || 0, 0);
 
+  const selectWithLang =
+    "id,slug,title,status,language,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id";
+  const selectWithoutLang =
+    "id,slug,title,status,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id";
+
   const sb = createAdminClient();
   let query = sb
     .from("articles")
-    .select(
-      "id,slug,title,status,language,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id",
-      { count: "exact" },
-    )
+    .select(selectWithLang, { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   if (status && STATUSES.includes(status as ArticleStatus)) {
     query = query.eq("status", status);
   }
 
-  const { data, count, error } = await query;
+  let { data, count, error } = await query;
+  if (error && error.message.includes("language")) {
+    let fallbackQuery = sb
+      .from("articles")
+      .select(selectWithoutLang, { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (status && STATUSES.includes(status as ArticleStatus)) {
+      fallbackQuery = fallbackQuery.eq("status", status);
+    }
+    const retry = await fallbackQuery;
+    data = (retry.data ?? []).map((row) => ({ ...row, language: "id" }));
+    count = retry.count;
+    error = retry.error;
+  }
+
   if (error) return jsonError(error.message, 500);
   return NextResponse.json({ articles: data ?? [], total: count ?? 0 });
 }

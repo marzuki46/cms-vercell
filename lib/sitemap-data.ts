@@ -9,23 +9,19 @@ export const getPublishedCount = unstable_cache(
     const sb = createPublicClient();
     if (!sb) return 0;
 
-    // Fall back to the unfiltered count when the language column is not
-    // migrated yet, so the sitemap never under-reports.
-    const filtered = await sb
-      .from("articles")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published")
-      .eq("language", locale);
+    const head = () =>
+      sb.from("articles").select("id", { count: "exact", head: true }).eq("status", "published");
+
+    if (locale === DEFAULT_LOCALE || locale === "id") {
+      const filtered = await head().or("language.eq.id,language.is.null");
+      if (!filtered.error && (filtered.count ?? 0) > 0) return filtered.count ?? 0;
+      const fallback = await head();
+      return fallback.count ?? 0;
+    }
+
+    const filtered = await head().eq("language", locale);
     if (!filtered.error) return filtered.count ?? 0;
-
-    // If column 'language' does not exist yet, only the default locale ('id') has legacy articles.
-    if (locale !== DEFAULT_LOCALE) return 0;
-
-    const { count } = await sb
-      .from("articles")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "published");
-    return count ?? 0;
+    return 0;
   },
   ["sitemap-count"],
   { revalidate: 300, tags: ["articles"] },
@@ -56,15 +52,18 @@ export const getPublishedArticles = unstable_cache(
       return data ?? [];
     }
 
+    if (locale === DEFAULT_LOCALE || locale === "id") {
+      const filtered = await base().or("language.eq.id,language.is.null");
+      if (!filtered.error && filtered.data && filtered.data.length > 0) {
+        return filtered.data ?? [];
+      }
+      const fallback = await base();
+      return fallback.data ?? [];
+    }
+
     const filtered = await base().eq("language", locale);
     if (!filtered.error) return filtered.data ?? [];
-
-    // If column 'language' does not exist yet, only 'id' has articles. 'en' has none.
-    if (locale !== DEFAULT_LOCALE) return [];
-
-    const { data, error } = await base();
-    if (error) return [];
-    return data ?? [];
+    return [];
   },
   ["sitemap-articles"],
   { revalidate: 300, tags: ["articles"] },
