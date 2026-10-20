@@ -55,33 +55,43 @@ function withDefaults(
 export async function getSettings(): Promise<Settings> {
   if (!hasServiceRole()) return localSettings();
 
-  const sb = createAdminClient();
-  const present = await availableColumns();
-
-  const columns = [
-    "id",
-    "site_name",
-    "site_url",
-    "language",
-    "ninerouter_url",
-    "ninerouter_key",
-    "model_writer",
-    "model_planner",
-    "embedding_model",
-    "brand_voice",
-    "niche",
-    "audience",
-    "posts_per_run",
-    "auto_publish",
-    "default_author",
-    "created_at",
-    "updated_at",
-    ...Object.entries(present)
-      .filter(([, ok]) => ok)
-      .map(([name]) => name),
-  ].join(",");
-
   try {
+    const sb = createAdminClient();
+    let present: Record<OptionalColumn, boolean>;
+    try {
+      present = await availableColumns();
+    } catch {
+      present = {
+        whatsapp_number: false,
+        whatsapp_message: false,
+        theme_template: false,
+        google_site_verification: false,
+      };
+    }
+
+    const columns = [
+      "id",
+      "site_name",
+      "site_url",
+      "language",
+      "ninerouter_url",
+      "ninerouter_key",
+      "model_writer",
+      "model_planner",
+      "embedding_model",
+      "brand_voice",
+      "niche",
+      "audience",
+      "posts_per_run",
+      "auto_publish",
+      "default_author",
+      "created_at",
+      "updated_at",
+      ...Object.entries(present)
+        .filter(([, ok]) => ok)
+        .map(([name]) => name),
+    ].join(",");
+
     const { data, error } = await sb
       .from("settings")
       .select(columns)
@@ -103,7 +113,7 @@ export async function getSettings(): Promise<Settings> {
     return withDefaults((created ?? {}) as unknown as Record<string, unknown>, present);
   } catch (err) {
     console.error("getSettings catch:", (err as Error).message);
-    return withDefaults({}, present);
+    return localSettings();
   }
 }
 

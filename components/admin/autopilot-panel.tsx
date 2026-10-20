@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiGet, apiSend } from "@/lib/client-api";
 
 interface Props {
   count: number;
   disabled: boolean;
-  onDone: () => void;
+  onDone?: () => void;
 }
 
 /**
@@ -15,6 +16,7 @@ interface Props {
  * before it reaches page one.
  */
 export default function AutopilotPanel({ count, disabled, onDone }: Props) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
@@ -67,14 +69,15 @@ export default function AutopilotPanel({ count, disabled, onDone }: Props) {
 
       setStep(null);
       setDone(true);
-      onDone();
+      router.refresh();
+      onDone?.();
     } catch (err) {
       setError((err as Error).message);
       setStep(null);
     } finally {
       setBusy(false);
     }
-  }, [count, onDone]);
+  }, [count, onDone, router]);
 
   return (
     <div className="flex flex-col gap-3">

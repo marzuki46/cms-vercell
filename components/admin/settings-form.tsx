@@ -54,6 +54,44 @@ export default function SettingsForm() {
   const [models, setModels] = useState<string[]>([]);
   const [missing, setMissing] = useState<string[]>([]);
   const [repair, setRepair] = useState("");
+  const [uploadedHtmlFile, setUploadedHtmlFile] = useState<string | null>(null);
+  const [testHtmlFile, setTestHtmlFile] = useState<string>("");
+  const [testStatus, setTestStatus] = useState<string | null>(null);
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedHtmlFile(file.name);
+    setTestHtmlFile(file.name);
+    checkFileVerification(file.name);
+  }
+
+  async function checkFileVerification(filename: string) {
+    if (!filename) return;
+    const clean = filename.trim().startsWith("/") ? filename.trim() : `/${filename.trim()}`;
+    setTestStatus("Memeriksa...");
+    try {
+      const res = await fetch(clean);
+      if (res.ok) {
+        const text = await res.text();
+        if (text.includes("google-site-verification")) {
+          setTestStatus(`✅ Sukses! URL ${clean} aktif & merespon:\n"${text.trim()}"\nSiap diverifikasi di Google Search Console!`);
+        } else {
+          setTestStatus(`⚠️ URL merespon HTTP ${res.status}, namun konten berbeda: "${text.slice(0, 80)}"`);
+        }
+      } else {
+        setTestStatus(`❌ Gagal: URL ${clean} merespon status HTTP ${res.status}`);
+      }
+    } catch {
+      setTestStatus("❌ Gagal menghubungi URL.");
+    }
+  }
+
+  function handleTagInput(val: string) {
+    const match = val.match(/content=["']([^"']+)["']/i);
+    const token = match ? match[1].trim() : val.trim();
+    set("google_site_verification", token);
+  }
 
   useEffect(() => {
     (async () => {
@@ -380,38 +418,123 @@ export default function SettingsForm() {
         ) : null}
 
         {tab === "seo" ? (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-6">
             <div>
               <h2 className="text-base font-bold text-[#1d2327]">
-                Google Search Console
+                Verifikasi Google Search Console & Mesin Pencari
               </h2>
-              <p className="text-xs text-[#646970]">
-                Tempel kode verifikasi dari Google Search Console (metode HTML Tag).
+              <p className="text-xs text-[#646970] mt-0.5">
+                Pilih salah satu metode verifikasi di bawah ini untuk menghubungkan situs Anda ke Google Search Console.
               </p>
             </div>
-            <label className="flex flex-col gap-1.5">
-              <span className={LABEL}>Kode verifikasi (HTML Tag)</span>
-              <input
-                value={form.google_site_verification ?? ""}
-                onChange={(e) => set("google_site_verification", e.target.value)}
-                placeholder="mis. AbCdEf1234567890abcdef..."
-                className={FIELD}
-              />
-              <span className="text-xs text-[#646970]">
-                Salin hanya isi atribut <code>content=&quot;...&quot;</code> dari tag
-                meta google-site-verification.
-              </span>
-            </label>
 
+            {/* Metode 1: File HTML (Paling Mudah & Instan) */}
+            <div className="rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#2271b1] text-xs font-bold text-white">
+                  1
+                </span>
+                <h3 className="text-sm font-bold text-[#1d2327]">
+                  Metode File HTML (Rekomendasi - Otomatis & Instan)
+                </h3>
+              </div>
+
+              <div className="rounded-md border border-[#cce5ff] bg-[#f0f7ff] p-3 text-xs leading-relaxed text-[#004085]">
+                💡 <strong>Cara kerja otomatis:</strong> Server Edge kami sudah dikonfigurasi untuk langsung merespon permintaan verifikasi file Google apa pun (misal: <code>google1234567890abcdef.html</code>) secara otomatis dengan status <strong>200 OK</strong> dan konten yang valid. Anda <strong>tidak perlu mengunggah file manual ke hosting</strong>!
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-[#50575e]">
+                  Langkah verifikasi dengan File HTML:
+                </p>
+                <ol className="list-decimal space-y-1.5 pl-5 text-xs text-[#50575e]">
+                  <li>Di Google Search Console, pilih metode <strong>HTML file</strong>.</li>
+                  <li>Unduh atau catat nama filenya (misalnya: <code>google4b8c9d2e1f0a.html</code>).</li>
+                  <li>Pilih file yang Anda unduh di bawah ini (atau ketik nama filenya) untuk menguji responnya:</li>
+                </ol>
+
+                <div className="flex flex-col sm:flex-row gap-2 mt-1">
+                  <label className="cursor-pointer rounded border border-dashed border-[#8c8f94] bg-[#f6f7f7] px-4 py-2.5 text-center text-xs font-semibold text-[#1d2327] hover:border-[#2271b1] hover:bg-[#edf2f7] transition">
+                    📁 Pilih File .html dari Komputer
+                    <input
+                      type="file"
+                      accept=".html"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <div className="flex flex-1 items-center gap-2">
+                    <input
+                      type="text"
+                      value={testHtmlFile}
+                      onChange={(e) => setTestHtmlFile(e.target.value)}
+                      placeholder="atau ketik nama file: google1234567890abcdef.html"
+                      className={FIELD}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => checkFileVerification(testHtmlFile)}
+                      className="shrink-0 rounded bg-[#2271b1] px-4 py-2 text-xs font-semibold text-white hover:bg-[#135e96] transition"
+                    >
+                      Tes URL
+                    </button>
+                  </div>
+                </div>
+
+                {uploadedHtmlFile ? (
+                  <p className="text-xs font-medium text-[#008a20]">
+                    ✓ File terdeteksi: <code>{uploadedHtmlFile}</code>
+                  </p>
+                ) : null}
+
+                {testStatus ? (
+                  <div className="rounded border border-[#dcdcde] bg-[#f6f7f7] p-3 font-mono text-xs whitespace-pre-wrap">
+                    {testStatus}
+                  </div>
+                ) : null}
+
+                <div className="text-xs text-[#646970] mt-1">
+                  Setelah tombol tes menunjukkan status sukses (✅), kembali ke Google Search Console dan klik tombol <strong>VERIFIKASI</strong>.
+                </div>
+              </div>
+            </div>
+
+            {/* Metode 2: Meta Tag HTML */}
+            <div className="rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#50575e] text-xs font-bold text-white">
+                  2
+                </span>
+                <h3 className="text-sm font-bold text-[#1d2327]">
+                  Metode Tag HTML (Meta Tag)
+                </h3>
+              </div>
+
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>Kode Verifikasi atau Tag Meta Lengkap</span>
+                <input
+                  value={form.google_site_verification ?? ""}
+                  onChange={(e) => handleTagInput(e.target.value)}
+                  placeholder="Tempel kode token atau tag <meta name='google-site-verification' content='...' />"
+                  className={FIELD}
+                />
+                <span className="text-xs text-[#646970]">
+                  Anda bisa menempelkan kode token saja (mis. <code>AbCdEf123456...</code>) atau seluruh tag <code>&lt;meta ...&gt;</code>, sistem akan mengekstraknya secara otomatis. Jangan lupa klik &quot;Simpan Pengaturan&quot; di bawah setelah mengisi.
+                </span>
+              </label>
+            </div>
+
+            {/* Otomasi SEO Lainnya */}
             <div className="rounded-lg border border-[#dcdcde] bg-[#f6f7f7] p-4">
-              <h3 className="text-sm font-bold text-[#1d2327]">Yang sudah otomatis</h3>
+              <h3 className="text-sm font-bold text-[#1d2327]">Fitur SEO yang Sudah Berjalan Otomatis</h3>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[#50575e]">
-                <li>Sitemap XML dinamis: <code>/sitemap.xml</code></li>
-                <li>robots.txt dengan allowlist bot AI</li>
-                <li>RSS feed: <code>/rss.xml</code></li>
-                <li>OpenGraph + Twitter Card + OG image 1200x630</li>
-                <li>JSON-LD: BlogPosting, BreadcrumbList, WebSite, Organization</li>
-                <li>Canonical URL &amp; meta robots max-snippet/-image</li>
+                <li>Sitemap XML dinamis dengan hreflang ID/EN: <code>/sitemap.xml</code></li>
+                <li>Verifikasi Bing Webmaster: <code>/BingSiteAuth.xml</code></li>
+                <li>robots.txt dengan allowlist bot AI (GPTBot, ClaudeBot, PerplexityBot): <code>/robots.txt</code></li>
+                <li>RSS Feed artikel: <code>/rss.xml</code></li>
+                <li>OpenGraph, Twitter Card &amp; gambar sosial otomatis 1200x630</li>
+                <li>Schema JSON-LD: <code>BlogPosting</code>, <code>BreadcrumbList</code>, <code>Person</code> (E-E-A-T), <code>CollectionPage</code></li>
+                <li>Pengalihan otomatis 301 untuk slug lama dan canonical tags</li>
               </ul>
             </div>
           </div>

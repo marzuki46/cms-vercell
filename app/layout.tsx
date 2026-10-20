@@ -37,6 +37,14 @@ export default function RootLayout({
   );
 }
 
+function parseGoogleVerificationToken(val?: string | null): string | undefined {
+  if (!val) return undefined;
+  const trimmed = val.trim();
+  const match = trimmed.match(/content=["']([^"']+)["']/i);
+  if (match) return match[1].trim();
+  return trimmed.replace(/^<meta[^>]*content=["']?|["']?\s*\/?>$/gi, "").trim() || undefined;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const site = await getSiteSettings();
   const baseUrl = env.siteUrl || "http://localhost:3000";
@@ -69,7 +77,7 @@ export async function generateMetadata(): Promise<Metadata> {
       },
     },
     verification: {
-      google: site.google_site_verification || env.googleSiteVerification || undefined,
+      google: parseGoogleVerificationToken(site.google_site_verification || env.googleSiteVerification),
     },
   };
 }

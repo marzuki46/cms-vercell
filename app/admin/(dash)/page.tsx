@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 import GeneratePanel from "@/components/admin/generate-panel";
 import AutopilotPanel from "@/components/admin/autopilot-panel";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,10 +8,6 @@ import { formatDate } from "@/components/article-card";
 import type { ArticleStatus, TopicStatus } from "@/types/db";
 
 export const dynamic = "force-dynamic";
-
-function refresh() {
-  revalidatePath("/admin");
-}
 
 const ARTICLE_STATUSES: ArticleStatus[] = [
   "published",
@@ -203,7 +198,6 @@ export default async function AdminDashboard() {
           <AutopilotPanel
             count={postsPerRun}
             disabled={!aiReady}
-            onDone={refresh}
           />
           <details className="border-t border-[#dcdcde] pt-4">
             <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-[#50575e]">

@@ -19,6 +19,35 @@ const ADMIN_PREFIXES = ["/admin", "/api/admin", "/api/settings", "/api/install"]
  */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Google Search Console HTML File verification handler
+  // Matches e.g. /google1234567890abcdef.html
+  const googleMatch = pathname.match(/^\/(google[a-zA-Z0-9_-]+\.html)$/i);
+  if (googleMatch) {
+    const filename = googleMatch[1];
+    return new NextResponse(`google-site-verification: ${filename}`, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=86400",
+      },
+    });
+  }
+
+  // Bing Webmaster verification XML file
+  if (pathname.toLowerCase() === "/bingsiteauth.xml") {
+    return new NextResponse(
+      `<?xml version="1.0"?><users><user>verified</user></users>`,
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+        },
+      },
+    );
+  }
+
   const isAdmin = ADMIN_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
