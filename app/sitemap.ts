@@ -68,6 +68,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "yearly",
       priority: 0.4,
     },
+    {
+      url: `${base}/${locale}/author/admin`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
   ]);
 
   // Pagination.

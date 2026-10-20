@@ -3,7 +3,7 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole, env } from "@/lib/env";
 import { availableColumns } from "@/lib/settings-schema";
-import type { Article, ArticleListItem } from "@/types/db";
+import type { Article, ArticleListItem, Author } from "@/types/db";
 
 const LIST_COLUMNS =
   "slug,title,excerpt,published_at,cover_image_url,reading_time_minutes,keywords,author";
@@ -197,13 +197,67 @@ export const getArticleBySlug = unstable_cache(
 
     const localized = await build().eq("language", locale).maybeSingle();
     if (localized.error) {
-      // language column missing — accept the article regardless of language
       const { data } = await build().maybeSingle();
       return (data as Article) ?? null;
     }
     return (localized.data as Article) ?? null;
   },
   ["article-by-slug"],
+  { revalidate: 300, tags: ["articles"] },
+);
+
+export const getAuthorBySlug = unstable_cache(
+  async (slug: string): Promise<Author | null> => {
+    const sb = createPublicClient();
+    if (!sb) return null;
+    const { data, error } = await sb
+      .from("authors")
+      .select("*")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error) return null;
+    return (data as Author) ?? null;
+  },
+  ["author-by-slug"],
+  { revalidate: 600, tags: ["settings"] },
+);
+
+export const getAuthors = unstable_cache(
+  async (): Promise<Author[]> => {
+    const sb = createPublicClient();
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from("authors")
+      .select("*")
+      .order("name", { ascending: true });
+    if (error) return [];
+    return (data as Author[]) ?? [];
+  },
+  ["authors-list"],
+  { revalidate: 600, tags: ["settings"] },
+);
+
+export const getArticlesByAuthor = unstable_cache(
+  async (authorName: string, limit = 20, locale?: string): Promise<ArticleListItem[]> => {
+    const sb = createPublicClient();
+    if (!sb) return [];
+    const build = () =>
+      sb
+        .from("articles")
+        .select(LIST_COLUMNS)
+        .eq("status", "published")
+        .eq("author", authorName)
+        .order("published_at", { ascending: false })
+        .limit(limit);
+
+    if (locale) {
+      const { data, error } = await build().eq("language", locale);
+      if (!error) return (data ?? []) as unknown as ArticleListItem[];
+    }
+    const { data } = await build();
+    return (data ?? []) as unknown as ArticleListItem[];
+  },
+  ["articles-by-author"],
   { revalidate: 300, tags: ["articles"] },
 );
 

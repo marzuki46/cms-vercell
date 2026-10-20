@@ -51,6 +51,7 @@ export interface Article {
   seo_description: string | null;
   keywords: string[] | null;
   author: string | null;
+  author_id?: string | null;
   language?: "id" | "en";
   status: ArticleStatus;
   published_at: string | null;
@@ -61,6 +62,19 @@ export interface Article {
   model: string | null;
   embedding: number[] | null;
   meta: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Author {
+  id: string;
+  slug: string;
+  name: string;
+  role: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  credentials: string[] | null;
+  social_links: Record<string, string> | null;
   created_at: string;
   updated_at: string;
 }

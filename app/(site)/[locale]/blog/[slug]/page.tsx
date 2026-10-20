@@ -159,9 +159,11 @@ export default async function ArticlePage({ params }: Props) {
         timeRequired: article.reading_time_minutes
           ? `PT${article.reading_time_minutes}M`
           : undefined,
-        author: article.author
-          ? { "@type": "Person", name: article.author }
-          : { "@type": "Organization", name: site.site_name },
+        author: {
+          "@type": "Person",
+          name: article.author || site.site_name,
+          url: `${base}/${locale}/author/admin`,
+        },
         publisher: {
           "@type": "Organization",
           name: site.site_name,
@@ -234,7 +236,17 @@ export default async function ArticlePage({ params }: Props) {
                 <span>· {article.reading_time_minutes} min read</span>
               ) : null}
               {article.word_count ? <span>· {article.word_count} words</span> : null}
-              {article.author ? <span>· {article.author}</span> : null}
+              {article.author ? (
+                <span>
+                  · Ditulis oleh:{" "}
+                  <Link
+                    href={`/${locale}/author/admin`}
+                    className="font-semibold text-accent hover:underline"
+                  >
+                    {article.author}
+                  </Link>
+                </span>
+              ) : null}
             </div>
             <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
               {article.title}
