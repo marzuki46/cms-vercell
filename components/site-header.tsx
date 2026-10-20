@@ -28,11 +28,36 @@ export default function SiteHeader({
   whatsappBtnLabel,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  const [alternateSlugMap, setAlternateSlugMap] = useState<Record<string, string>>({});
   const pathname = usePathname();
 
   // Close mobile menu whenever pathname changes
   useEffect(() => {
     setIsOpen(false);
+  }, [pathname]);
+
+  // Read any article-specific alternate URLs published into DOM by blog post page
+  useEffect(() => {
+    const handleAlternateUpdate = () => {
+      const enEl = document.querySelector('link[rel="alternate"][hreflang="en"]') as HTMLLinkElement | null;
+      const idEl = document.querySelector('link[rel="alternate"][hreflang="id"]') as HTMLLinkElement | null;
+      const map: Record<string, string> = {};
+      if (enEl?.href) {
+        try {
+          map["en"] = new URL(enEl.href).pathname;
+        } catch {}
+      }
+      if (idEl?.href) {
+        try {
+          map["id"] = new URL(idEl.href).pathname;
+        } catch {}
+      }
+      setAlternateSlugMap(map);
+    };
+
+    handleAlternateUpdate();
+    window.addEventListener("cms:alternate-updated", handleAlternateUpdate);
+    return () => window.removeEventListener("cms:alternate-updated", handleAlternateUpdate);
   }, [pathname]);
 
   // Prevent background scroll when mobile menu is open
@@ -52,6 +77,32 @@ export default function SiteHeader({
         whatsappMessage ? `?text=${encodeURIComponent(whatsappMessage)}` : ""
       }`
     : null;
+
+  // Smart URL switcher: never blindly kick user back to home
+  function getSwitchUrl(targetLocale: Locale) {
+    if (targetLocale === locale) return pathname || `/${locale}`;
+
+    // 1. If explicit alternate URL exists (e.g. from article metadata)
+    if (alternateSlugMap[targetLocale]) {
+      return alternateSlugMap[targetLocale];
+    }
+
+    if (!pathname) return `/${targetLocale}`;
+    const segments = pathname.split("/").filter(Boolean);
+
+    // Root /id or /en -> /en or /id
+    if (segments.length <= 1) {
+      return `/${targetLocale}`;
+    }
+
+    // Preserve subpages: /id/about -> /en/about, /id/blog -> /en/blog, etc.
+    if (segments[0] === "id" || segments[0] === "en") {
+      segments[0] = targetLocale;
+      return "/" + segments.join("/");
+    }
+
+    return `/${targetLocale}/${segments.join("/")}`;
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/95 backdrop-blur-md transition-colors">
@@ -111,7 +162,7 @@ export default function SiteHeader({
             {SUPPORTED_LOCALES.map((l) => (
               <Link
                 key={l}
-                href={`/${l}`}
+                href={getSwitchUrl(l)}
                 hrefLang={htmlLang(l)}
                 className={`rounded-full px-2.5 py-1 uppercase transition ${
                   l === locale
@@ -145,7 +196,7 @@ export default function SiteHeader({
             {SUPPORTED_LOCALES.map((l) => (
               <Link
                 key={l}
-                href={`/${l}`}
+                href={getSwitchUrl(l)}
                 className={`rounded-full px-2 py-0.5 uppercase transition ${
                   l === locale
                     ? "bg-accent text-accent-fg"

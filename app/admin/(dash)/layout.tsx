@@ -13,6 +13,7 @@ const NAV_MAIN = [
 const NAV_MANAGEMENT = [
   { href: "/admin/leads", label: "Lead WhatsApp", icon: "💬" },
   { href: "/admin/settings", label: "Pengaturan Situs", icon: "⚙️" },
+  { href: "/admin/backup", label: "Backup & Restore", icon: "💾" },
 ];
 
 export default async function AdminLayout({

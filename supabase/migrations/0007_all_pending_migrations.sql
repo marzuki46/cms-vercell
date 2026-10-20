@@ -17,12 +17,18 @@ update public.settings
 set theme_template = 'modern'
 where theme_template is null;
 
--- 2. Articles Language & Redirects (0004)
+-- 2. Articles Language & Redirects (0004 & 0008)
 alter table public.articles
   add column if not exists language text not null default 'id';
 
+alter table public.articles
+  add column if not exists translation_of uuid references public.articles (id) on delete set null;
+
 create index if not exists articles_lang_published_idx
   on public.articles (language, status, published_at desc);
+
+create index if not exists articles_translation_of_idx
+  on public.articles (translation_of);
 
 update public.articles
 set language = coalesce(
@@ -30,6 +36,20 @@ set language = coalesce(
   'id'
 )
 where language is null or language = '';
+
+-- Pastikan artikel bahasa Inggris diset ke 'en'
+update public.articles
+set language = 'en'
+where slug = 'website-migration-seo-checklist'
+   or slug like '%-en'
+   or title ilike '%How to Migrate%';
+
+-- Hubungkan pasangan terjemahan
+update public.articles
+set translation_of = (
+  select id from public.articles where slug = 'cara-migrasi-website-tanpa-drop' limit 1
+)
+where slug = 'website-migration-seo-checklist';
 
 create table if not exists public.redirects (
   id uuid primary key default gen_random_uuid(),

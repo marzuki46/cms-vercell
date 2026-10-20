@@ -345,6 +345,58 @@ export const getArticleBySlug = unstable_cache(
   { revalidate: 300, tags: ["articles"] },
 );
 
+/**
+ * Find the paired translated article across languages.
+ * Links ID <-> EN even if the URL slugs are completely different.
+ */
+export const getArticleTranslation = unstable_cache(
+  async (slug: string, locale: string): Promise<{ locale: "id" | "en"; slug: string } | null> => {
+    const sb = getContentClient();
+    if (!sb) return null;
+
+    const current = await getArticleBySlug(slug, locale);
+    if (!current) return null;
+
+    const targetLang: "id" | "en" = locale === "id" ? "en" : "id";
+
+    try {
+      // 1. If current is EN and points to source ID article
+      if (locale === "en" && current.translation_of) {
+        const { data } = await sb
+          .from("articles")
+          .select("slug, status, language")
+          .eq("id", current.translation_of)
+          .eq("status", "published")
+          .maybeSingle();
+        if (data?.slug) return { locale: "id", slug: data.slug };
+      }
+
+      // 2. If current is ID, find EN article that translated it
+      if (locale === "id") {
+        const { data } = await sb
+          .from("articles")
+          .select("slug, status, language")
+          .eq("translation_of", current.id)
+          .eq("status", "published")
+          .maybeSingle();
+        if (data?.slug) return { locale: "en", slug: data.slug };
+      }
+    } catch {
+      // Ignore if column translation_of does not exist yet
+    }
+
+    // 3. Fallback: check if same slug is published in target language
+    const identical = await getArticleBySlug(slug, targetLang);
+    if (identical && identical.status === "published") {
+      return { locale: targetLang, slug };
+    }
+
+    return null;
+  },
+  ["article-translation-pair"],
+  { revalidate: 300, tags: ["articles"] },
+);
+
 async function buildConfiguredAuthor(slug: string): Promise<Author> {
   let site: SiteSettings;
   try {

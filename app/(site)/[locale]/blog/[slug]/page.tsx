@@ -8,6 +8,7 @@ import TableOfContents from "@/components/table-of-contents";
 import AuthorBox from "@/components/author-box";
 import {
   getArticleBySlug,
+  getArticleTranslation,
   getAuthorBySlug,
   getPublishedSlugs,
   getRelatedArticles,
@@ -46,25 +47,32 @@ function baseUrl() {
 }
 
 /** Only offer hreflang for languages where this slug actually exists. */
+/** Smart hreflang pairing: resolves translated partner article even with completely different slug */
 async function alternatesFor(
   slug: string,
   base: string,
   current: Locale,
 ): Promise<Record<string, string> | undefined> {
-  const [idSlugs, enSlugs] = await Promise.all([
-    getPublishedSlugs("id"),
-    getPublishedSlugs("en"),
-  ]);
-  const hasId = idSlugs.includes(slug);
-  const hasEn = enSlugs.includes(slug);
+  const pair = await getArticleTranslation(slug, current);
 
-  const out: Record<string, string> = {};
-  if (hasId) out["id"] = `${base}/id/blog/${slug}`;
-  if (hasEn) out["en"] = `${base}/en/blog/${slug}`;
-  if (hasId) out["x-default"] = `${base}/id/blog/${slug}`;
-  else if (hasEn) out["x-default"] = `${base}/en/blog/${slug}`;
+  const out: Record<string, string> = {
+    [current]: `${base}/${current}/blog/${slug}`,
+  };
 
-  return Object.keys(out).length > 0 ? out : undefined;
+  if (pair) {
+    out[pair.locale] = `${base}/${pair.locale}/blog/${pair.slug}`;
+  }
+
+  // x-default points to primary ID version if available
+  if (current === "id") {
+    out["x-default"] = `${base}/id/blog/${slug}`;
+  } else if (pair && pair.locale === "id") {
+    out["x-default"] = `${base}/id/blog/${pair.slug}`;
+  } else {
+    out["x-default"] = `${base}/${current}/blog/${slug}`;
+  }
+
+  return out;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -127,10 +135,11 @@ export default async function ArticlePage({ params }: Props) {
   if (!isLocale(raw)) notFound();
   const locale = raw;
 
-  const [article, site, author] = await Promise.all([
+  const [article, site, author, translation] = await Promise.all([
     getArticleBySlug(slug, locale),
     getSiteSettings(),
     getAuthorBySlug("admin"),
+    getArticleTranslation(slug, locale),
   ]);
   if (!article) notFound();
 
@@ -255,6 +264,28 @@ export default async function ArticlePage({ params }: Props) {
 
       <article className="lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-12">
         <div className="min-w-0">
+          {translation ? (
+            <aside
+              aria-label="Bahasa Alternatif"
+              className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-line bg-muted/10 px-4 py-3 text-xs sm:text-sm"
+            >
+              <div className="flex items-center gap-2 text-foreground font-medium">
+                <span aria-hidden="true" className="text-base">🌐</span>
+                <span>
+                  {en
+                    ? "This article is also available in Indonesian:"
+                    : "Artikel ini juga tersedia dalam versi English:"}
+                </span>
+              </div>
+              <Link
+                href={`/${translation.locale}/blog/${translation.slug}`}
+                className="font-bold text-accent hover:underline shrink-0"
+              >
+                {en ? "Baca Bahasa Indonesia →" : "Read in English →"}
+              </Link>
+            </aside>
+          ) : null}
+
           <header className="mb-8 border-b border-line pb-6">
             <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
               <time dateTime={article.published_at ?? undefined}>

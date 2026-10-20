@@ -111,6 +111,7 @@ export default function ArticleEditor({ id }: { id: string }) {
           language: "en",
           status: "draft",
           author: article.author || "Admin",
+          translation_of: article.id,
         });
         setNotice("✓ Versi English berhasil dibuat sebagai Draft! Mengalihkan ke editor artikel EN...");
         router.push(`/admin/articles/${created.article.id}`);

@@ -92,6 +92,7 @@ export interface Article {
   category_id?: string | null;
   category_slug?: string | null;
   language?: "id" | "en";
+  translation_of?: string | null;
   status: ArticleStatus;
   published_at: string | null;
   scheduled_for: string | null;

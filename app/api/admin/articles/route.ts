@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     author?: string;
     status?: ArticleStatus;
     language?: string;
+    translation_of?: string | null;
   };
 
   try {
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest) {
     word_count,
     reading_time_minutes: reading_time,
     language,
+    translation_of: body.translation_of || null,
   };
 
   let { data: created, error } = await sb
@@ -131,7 +133,14 @@ export async function POST(request: NextRequest) {
     .select("*")
     .single();
 
-  // Tolerance fallback: if database has not executed migration 0004 yet (language column missing)
+  // Tolerance fallback: if database column translation_of or language is not migrated yet
+  if (error && error.message.includes("translation_of")) {
+    delete rowToInsert.translation_of;
+    const retry = await sb.from("articles").insert(rowToInsert).select("*").single();
+    created = retry.data;
+    error = retry.error;
+  }
+
   if (error && error.message.includes("column") && error.message.includes("language")) {
     delete rowToInsert.language;
     const retry = await sb.from("articles").insert(rowToInsert).select("*").single();

@@ -126,6 +126,7 @@ export default function ArticlesAdmin() {
         language: "en",
         status: targetStatus,
         author: art.author || "Admin",
+        translation_of: row.id,
       });
 
       setNotice(
