@@ -52,6 +52,8 @@ export interface Article {
   keywords: string[] | null;
   author: string | null;
   author_id?: string | null;
+  category_id?: string | null;
+  category_slug?: string | null;
   language?: "id" | "en";
   status: ArticleStatus;
   published_at: string | null;
@@ -75,6 +77,16 @@ export interface Author {
   avatar_url: string | null;
   credentials: string[] | null;
   social_links: Record<string, string> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  language: "id" | "en";
   created_at: string;
   updated_at: string;
 }

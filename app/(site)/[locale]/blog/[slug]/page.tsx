@@ -247,6 +247,17 @@ export default async function ArticlePage({ params }: Props) {
                   </Link>
                 </span>
               ) : null}
+              {article.category_slug ? (
+                <span>
+                  · Kategori:{" "}
+                  <Link
+                    href={`/${locale}/category/${article.category_slug}`}
+                    className="font-semibold text-accent hover:underline"
+                  >
+                    {article.category_slug}
+                  </Link>
+                </span>
+              ) : null}
             </div>
             <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
               {article.title}

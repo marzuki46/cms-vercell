@@ -3,10 +3,10 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole, env } from "@/lib/env";
 import { availableColumns } from "@/lib/settings-schema";
-import type { Article, ArticleListItem, Author } from "@/types/db";
+import type { Article, ArticleListItem, Author, Category } from "@/types/db";
 
 const LIST_COLUMNS =
-  "slug,title,excerpt,published_at,cover_image_url,reading_time_minutes,keywords,author";
+  "slug,title,excerpt,published_at,cover_image_url,reading_time_minutes,keywords,author,category_slug";
 
 export interface SiteSettings {
   site_name: string;
@@ -258,6 +258,60 @@ export const getArticlesByAuthor = unstable_cache(
     return (data ?? []) as unknown as ArticleListItem[];
   },
   ["articles-by-author"],
+  { revalidate: 300, tags: ["articles"] },
+);
+
+export const getCategories = unstable_cache(
+  async (locale?: string): Promise<Category[]> => {
+    const sb = createPublicClient();
+    if (!sb) return [];
+    const query = sb
+      .from("categories")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (locale) {
+      const { data, error } = await query.eq("language", locale);
+      if (!error) return (data ?? []) as Category[];
+    }
+    const { data } = await query;
+    return (data ?? []) as Category[];
+  },
+  ["categories-list"],
+  { revalidate: 600, tags: ["settings"] },
+);
+
+export const getCategoryBySlug = unstable_cache(
+  async (slug: string): Promise<Category | null> => {
+    const sb = createPublicClient();
+    if (!sb) return null;
+    const { data, error } = await sb
+      .from("categories")
+      .select("*")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (error) return null;
+    return (data as Category) ?? null;
+  },
+  ["category-by-slug"],
+  { revalidate: 600, tags: ["settings"] },
+);
+
+export const getArticlesByCategory = unstable_cache(
+  async (categorySlug: string, limit = 20): Promise<ArticleListItem[]> => {
+    const sb = createPublicClient();
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from("articles")
+      .select(LIST_COLUMNS)
+      .eq("status", "published")
+      .eq("category_slug", categorySlug)
+      .order("published_at", { ascending: false })
+      .limit(limit);
+    if (error) return [];
+    return (data ?? []) as unknown as ArticleListItem[];
+  },
+  ["articles-by-category"],
   { revalidate: 300, tags: ["articles"] },
 );
 
