@@ -133,16 +133,19 @@ export async function POST(request: NextRequest) {
     .select("*")
     .single();
 
-  // Tolerance fallback: if database column translation_of or language is not migrated yet
-  if (error && error.message.includes("translation_of")) {
-    delete rowToInsert.translation_of;
-    const retry = await sb.from("articles").insert(rowToInsert).select("*").single();
-    created = retry.data;
-    error = retry.error;
-  }
+  // Resilient insert: automatically strip optional columns if Supabase schema cache hasn't updated yet
+  let attempts = 0;
+  while (error && attempts < 5) {
+    attempts++;
+    let stripped = false;
+    for (const col of ["translation_of", "language", "category_slug", "author_id", "category_id"]) {
+      if (col in rowToInsert && error.message.toLowerCase().includes(col)) {
+        delete rowToInsert[col];
+        stripped = true;
+      }
+    }
+    if (!stripped) break;
 
-  if (error && error.message.includes("column") && error.message.includes("language")) {
-    delete rowToInsert.language;
     const retry = await sb.from("articles").insert(rowToInsert).select("*").single();
     created = retry.data;
     error = retry.error;

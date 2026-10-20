@@ -115,9 +115,19 @@ export async function PATCH(
     .select("*")
     .single();
 
-  // Tolerance fallback: if database has not executed migration 0004 yet (language column missing)
-  if (error && error.message.includes("column") && error.message.includes("language")) {
-    delete patch.language;
+  // Resilient update: automatically strip optional columns if Supabase schema cache hasn't updated yet
+  let attempts = 0;
+  while (error && attempts < 5) {
+    attempts++;
+    let stripped = false;
+    for (const col of ["translation_of", "language", "category_slug", "author_id", "category_id"]) {
+      if (col in patch && error.message.toLowerCase().includes(col)) {
+        delete patch[col];
+        stripped = true;
+      }
+    }
+    if (!stripped) break;
+
     const retry = await sb
       .from("articles")
       .update(patch)
