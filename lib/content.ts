@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole, env } from "@/lib/env";
 import { availableColumns } from "@/lib/settings-schema";
 import { DEFAULT_LOCALE } from "@/lib/i18n";
-import type { Article, ArticleListItem, Author, Category, HomeCopy } from "@/types/db";
+import type { Article, ArticleListItem, Author, AuthorProfile, Category, HomeCopy } from "@/types/db";
 
 const LIST_COLUMNS_WITH_CAT =
   "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,category_slug";
@@ -24,6 +24,7 @@ export interface SiteSettings {
   theme_template: "modern" | "editorial" | "minimal";
   google_site_verification: string | null;
   home_copy?: HomeCopy | null;
+  author_profile?: AuthorProfile | null;
 }
 
 const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
@@ -36,6 +37,7 @@ function fallbackSiteSettings(): SiteSettings {
     theme_template: "modern",
     google_site_verification: env.googleSiteVerification || null,
     home_copy: null,
+    author_profile: null,
   };
 }
 
@@ -48,9 +50,11 @@ async function loadSiteSettings(): Promise<SiteSettings> {
     "site_url",
     "language",
     "brand_voice",
+    "audience",
     ...(present.theme_template ? ["theme_template"] : []),
     ...(present.google_site_verification ? ["google_site_verification"] : []),
     ...(present.home_copy ? ["home_copy"] : []),
+    ...(present.author_profile ? ["author_profile"] : []),
   ].join(",");
 
   const { data, error } = await sb
@@ -79,6 +83,21 @@ async function loadSiteSettings(): Promise<SiteSettings> {
     }
   }
 
+  let author_profile: AuthorProfile | null = null;
+  if (present.author_profile && row.author_profile) {
+    author_profile = row.author_profile as AuthorProfile;
+  } else if (
+    row.audience &&
+    typeof row.audience === "string" &&
+    row.audience.startsWith("__AUTHOR_PROFILE__:")
+  ) {
+    try {
+      author_profile = JSON.parse(row.audience.slice(19));
+    } catch {
+      author_profile = null;
+    }
+  }
+
   return {
     site_name: (row.site_name as string | null) || fallbackSiteSettings().site_name,
     site_url: (row.site_url as string | null) ?? null,
@@ -90,6 +109,7 @@ async function loadSiteSettings(): Promise<SiteSettings> {
       env.googleSiteVerification ||
       null,
     home_copy,
+    author_profile,
   };
 }
 
@@ -285,22 +305,39 @@ export const getArticleBySlug = unstable_cache(
   { revalidate: 300, tags: ["articles"] },
 );
 
-function createDefaultAuthor(slug: string): Author {
+async function buildConfiguredAuthor(slug: string): Promise<Author> {
+  let site: SiteSettings;
+  try {
+    site = await getSiteSettings();
+  } catch {
+    site = fallbackSiteSettings();
+  }
+
+  const p = site.author_profile;
   const isEn = slug.includes("en");
+
   return {
-    id: "default-admin",
+    id: "configured-admin",
     slug,
-    name: "Admin Editorial",
-    role: isEn ? "Senior Content Editor & Researcher" : "Tim Riset & Editor Publikasi",
-    bio: isEn
-      ? "Official editorial team and verified publisher dedicated to providing data-driven guides, factual reviews, and trusted insights."
-      : "Tim editorial dan penulis resmi berdedikasi untuk menyajikan informasi terpercaya, ulasan faktual, panduan mendalam, dan rekomendasi terbaik bagi para pembaca.",
-    avatar_url: null,
-    credentials: [
-      "Verified Content Creator",
-      "SEO & Industry Research Specialist",
-      "Editorial Board Member",
-    ],
+    name: p?.name || site.site_name || "Admin Editorial",
+    role:
+      p?.role ||
+      (isEn
+        ? "Senior Content Editor & Researcher"
+        : "Tim Riset & Editor Publikasi"),
+    bio:
+      p?.bio ||
+      (isEn
+        ? `Official editorial team of ${site.site_name} dedicated to providing data-driven guides, factual reviews, and trusted insights.`
+        : `Tim editorial dan penulis resmi ${site.site_name} berdedikasi untuk menyajikan informasi terpercaya, ulasan faktual, panduan mendalam, dan rekomendasi terbaik bagi para pembaca.`),
+    avatar_url: p?.avatar_url || null,
+    credentials: p?.credentials && p.credentials.length > 0
+      ? p.credentials
+      : [
+          "Verified Content Creator",
+          "SEO & Industry Research Specialist",
+          "Editorial Board Member",
+        ],
     social_links: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -310,7 +347,7 @@ function createDefaultAuthor(slug: string): Author {
 export const getAuthorBySlug = unstable_cache(
   async (slug: string): Promise<Author | null> => {
     const sb = getContentClient();
-    if (!sb) return createDefaultAuthor(slug);
+    if (!sb) return await buildConfiguredAuthor(slug);
 
     try {
       const { data, error } = await sb
@@ -324,18 +361,8 @@ export const getAuthorBySlug = unstable_cache(
       // Table missing or DB error
     }
 
-    // Fallback for default author like 'admin' so the page never 404s
-    if (
-      slug === "admin" ||
-      slug === "author" ||
-      slug === "redaksi" ||
-      slug === "editor" ||
-      slug === "tim-redaksi"
-    ) {
-      return createDefaultAuthor(slug);
-    }
-
-    return createDefaultAuthor(slug);
+    // Always fallback to configured author so the page never 404s
+    return await buildConfiguredAuthor(slug);
   },
   ["author-by-slug"],
   { revalidate: 600, tags: ["settings"] },
@@ -344,7 +371,7 @@ export const getAuthorBySlug = unstable_cache(
 export const getAuthors = unstable_cache(
   async (): Promise<Author[]> => {
     const sb = getContentClient();
-    if (!sb) return [createDefaultAuthor("admin")];
+    if (!sb) return [await buildConfiguredAuthor("admin")];
     try {
       const { data, error } = await sb
         .from("authors")
@@ -354,7 +381,7 @@ export const getAuthors = unstable_cache(
     } catch {
       // Table missing
     }
-    return [createDefaultAuthor("admin")];
+    return [await buildConfiguredAuthor("admin")];
   },
   ["authors-list"],
   { revalidate: 600, tags: ["settings"] },

@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS: Omit<Settings, "id" | "updated_at"> = {
   whatsapp_number: null,
   whatsapp_message: null,
   home_copy: null,
+  author_profile: null,
 };
 
 function localSettings(): Settings {
@@ -61,6 +62,21 @@ function withDefaults(
       merged.home_copy = null;
     }
   }
+
+  if (present.author_profile && row.author_profile) {
+    merged.author_profile = row.author_profile as any;
+  } else if (
+    row.audience &&
+    typeof row.audience === "string" &&
+    row.audience.startsWith("__AUTHOR_PROFILE__:")
+  ) {
+    try {
+      merged.author_profile = JSON.parse(row.audience.slice(19));
+    } catch {
+      merged.author_profile = null;
+    }
+  }
+
   merged.ninerouter_key = (row.ninerouter_key as string | null) ?? null;
   return merged;
 }
@@ -81,6 +97,7 @@ export async function getSettings(): Promise<Settings> {
         theme_template: false,
         google_site_verification: false,
         home_copy: false,
+        author_profile: false,
       };
     }
 
@@ -146,6 +163,11 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   if (!present.home_copy && rest.home_copy) {
     rest.brand_voice = `__HOME_COPY__:${JSON.stringify(rest.home_copy)}`;
     delete rest.home_copy;
+  }
+
+  if (!present.author_profile && rest.author_profile) {
+    rest.audience = `__AUTHOR_PROFILE__:${JSON.stringify(rest.author_profile)}`;
+    delete rest.author_profile;
   }
 
   for (const [name, ok] of Object.entries(present)) {

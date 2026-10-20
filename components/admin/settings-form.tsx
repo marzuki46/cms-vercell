@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiGet, apiSend } from "@/lib/client-api";
-import type { Settings, HomeCopyLocale } from "@/types/db";
+import type { Settings, HomeCopyLocale, AuthorProfile } from "@/types/db";
 
 type Form = Omit<Settings, "id" | "updated_at">;
 
@@ -26,6 +26,7 @@ const EMPTY: Form = {
   whatsapp_number: "",
   whatsapp_message: "",
   home_copy: null,
+  author_profile: null,
 };
 
 const FIELD =
@@ -35,6 +36,7 @@ const LABEL = "text-[#50575e] font-semibold text-xs uppercase tracking-wide";
 const TABS = [
   { id: "general", label: "Umum", icon: "🌐" },
   { id: "homepage", label: "Teks Beranda (Home Copy)", icon: "🏠" },
+  { id: "author", label: "Profil Penulis (E-E-A-T)", icon: "✍️" },
   { id: "content", label: "Konten & AI", icon: "🤖" },
   { id: "seo", label: "SEO & Search", icon: "🔍" },
   { id: "whatsapp", label: "WhatsApp", icon: "💬" },
@@ -137,6 +139,19 @@ export default function SettingsForm() {
           ...(f.home_copy?.[homeCopyLang] ?? {}),
           [field]: value,
         },
+      },
+    }));
+  }
+
+  function updateAuthorProfile<K extends keyof AuthorProfile>(
+    field: K,
+    value: AuthorProfile[K],
+  ) {
+    setForm((f) => ({
+      ...f,
+      author_profile: {
+        ...(f.author_profile ?? {}),
+        [field]: value,
       },
     }));
   }
@@ -552,6 +567,189 @@ export default function SettingsForm() {
                     className={FIELD}
                   />
                 </label>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {tab === "author" ? (
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center justify-between pb-3 border-b border-[#dcdcde] gap-3">
+              <div>
+                <h2 className="text-base font-bold text-[#1d2327]">Pengaturan Profil Penulis &amp; E-E-A-T</h2>
+                <p className="text-xs text-[#646970]">
+                  Kelola data profil penulis resmi yang tampil di halaman profil <code>/id/author/admin</code> serta kotak penulis (Author Box) di setiap artikel.
+                </p>
+              </div>
+
+              <a
+                href="/id/author/admin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border border-[#2271b1] text-[#2271b1] bg-[#2271b1]/5 hover:bg-[#2271b1]/10 transition"
+              >
+                <span>Lihat Profil Publik (/id/author/admin)</span>
+                <span>↗</span>
+              </a>
+            </div>
+
+            {/* Bagian 1: Data Identitas Penulis */}
+            <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+                1. Identitas &amp; Biografi Penulis
+              </span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Nama Lengkap Penulis</span>
+                  <input
+                    value={form.author_profile?.name ?? form.default_author ?? ""}
+                    onChange={(e) => {
+                      updateAuthorProfile("name", e.target.value);
+                      set("default_author", e.target.value);
+                    }}
+                    placeholder="Contoh: Budi Santoso / Tim Redaksi"
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Jabatan / Gelar / Keahlian (Role)</span>
+                  <input
+                    value={form.author_profile?.role ?? ""}
+                    onChange={(e) => updateAuthorProfile("role", e.target.value)}
+                    placeholder="Contoh: Sales Consultant Resmi & Penulis Otomotif"
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>URL Foto Profil / Avatar (Opsional)</span>
+                  <input
+                    value={form.author_profile?.avatar_url ?? ""}
+                    onChange={(e) => updateAuthorProfile("avatar_url", e.target.value)}
+                    placeholder="https://images.unsplash.com/... atau URL foto Anda (kosongkan untuk inisial nama)"
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>Biografi Singkat (Bio)</span>
+                  <textarea
+                    rows={3}
+                    value={form.author_profile?.bio ?? ""}
+                    onChange={(e) => updateAuthorProfile("bio", e.target.value)}
+                    placeholder="Tuliskan pengalaman, dedikasi, atau latar belakang profesional Anda untuk meningkatkan kredibilitas di mata pembaca dan Google E-E-A-T..."
+                    className={FIELD}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5 sm:col-span-2">
+                  <span className={LABEL}>Sertifikasi &amp; Keahlian E-E-A-T (Pisahkan dengan tanda koma)</span>
+                  <input
+                    value={(form.author_profile?.credentials ?? []).join(", ")}
+                    onChange={(e) => {
+                      const list = e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      updateAuthorProfile("credentials", list);
+                    }}
+                    placeholder="Contoh: Verified Content Creator, Konsultan Resmi Solo, Ahli Finansial Otomotif"
+                    className={FIELD}
+                  />
+                  <span className="text-[11px] text-[#646970]">
+                    Badge ini akan ditampilkan dengan ikon medali 🏅 di halaman profil dan kotak artikel.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Bagian 2: Pengaturan Kotak Penulis di Halaman Artikel */}
+            <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+                2. Tampilan Kotak Penulis di Setiap Artikel (Author Box)
+              </span>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Posisi Kotak Penulis di Artikel</span>
+                  <select
+                    value={form.author_profile?.author_box_position ?? "bottom"}
+                    onChange={(e) =>
+                      updateAuthorProfile(
+                        "author_box_position",
+                        e.target.value as "bottom" | "top" | "both" | "none",
+                      )
+                    }
+                    className={FIELD}
+                  >
+                    <option value="bottom">Di Bawah Konten Artikel (Rekomendasi Standar)</option>
+                    <option value="top">Di Atas Konten Artikel (Di Bawah Judul)</option>
+                    <option value="both">Di Atas &amp; Di Bawah Konten Sekaligus</option>
+                    <option value="none">Nonaktifkan (Jangan Tampilkan)</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className={LABEL}>Judul Kotak Penulis</span>
+                  <input
+                    value={form.author_profile?.author_box_title ?? ""}
+                    onChange={(e) => updateAuthorProfile("author_box_title", e.target.value)}
+                    placeholder="Default: Ditulis &amp; Diverifikasi Oleh"
+                    className={FIELD}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Bagian 3: Preview Tampilan Langsung */}
+            <div className="bg-white p-4 rounded-lg border border-[#c3c4c7] flex flex-col gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#1d2327]">
+                Preview Kotak Penulis di Artikel:
+              </span>
+
+              <div className="rounded-xl border border-line bg-[#fbfbfd] p-4 sm:p-5 flex flex-col sm:flex-row gap-4 items-start">
+                <div className="h-14 w-14 rounded-full bg-[#2271b1] text-white flex items-center justify-center font-bold text-xl overflow-hidden shrink-0 shadow-sm">
+                  {form.author_profile?.avatar_url ? (
+                    <img
+                      src={form.author_profile.avatar_url}
+                      alt="Avatar"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{(form.author_profile?.name || form.default_author || "A").charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#2271b1]">
+                      {form.author_profile?.author_box_title || "Ditulis & Diverifikasi Oleh"}
+                    </span>
+                    <span className="text-[10px] font-bold text-[#008a20] bg-[#edfaef] px-2 py-0.5 rounded-full">
+                      ✓ Verified E-E-A-T
+                    </span>
+                  </div>
+                  <h4 className="text-base font-bold text-[#1d2327] mt-0.5">
+                    {form.author_profile?.name || form.default_author || "Admin Editorial"}
+                  </h4>
+                  <p className="text-xs font-semibold text-[#50575e]">
+                    {form.author_profile?.role || "Tim Riset & Editor Publikasi"}
+                  </p>
+                  <p className="text-xs text-[#50575e] mt-1.5 leading-relaxed line-clamp-2">
+                    {form.author_profile?.bio ||
+                      "Tim editorial dan penulis resmi berdedikasi menyajikan ulasan dan panduan terpercaya."}
+                  </p>
+                  {form.author_profile?.credentials && form.author_profile.credentials.length > 0 ? (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {form.author_profile.credentials.map((c) => (
+                        <span key={c} className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium border border-slate-200">
+                          🏅 {c}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>

@@ -29,6 +29,16 @@ export interface HomeCopy {
   en?: HomeCopyLocale;
 }
 
+export interface AuthorProfile {
+  name?: string;
+  role?: string;
+  bio?: string;
+  avatar_url?: string;
+  credentials?: string[];
+  author_box_position?: "bottom" | "top" | "both" | "none";
+  author_box_title?: string;
+}
+
 export interface Settings {
   id: string;
   site_name: string | null;
@@ -37,6 +47,7 @@ export interface Settings {
   theme_template?: "modern" | "editorial" | "minimal";
   google_site_verification?: string | null;
   home_copy?: HomeCopy | null;
+  author_profile?: AuthorProfile | null;
   ninerouter_url: string | null;
   ninerouter_key: string | null;
   model_writer: string;

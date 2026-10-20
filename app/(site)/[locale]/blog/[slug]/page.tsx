@@ -5,9 +5,10 @@ import Markdown from "@/components/markdown";
 import JsonLd from "@/components/jsonld";
 import ArticleCard from "@/components/article-card";
 import TableOfContents from "@/components/table-of-contents";
-import WhatsAppChatButton from "@/components/whatsapp/chat-button";
+import AuthorBox from "@/components/author-box";
 import {
   getArticleBySlug,
+  getAuthorBySlug,
   getPublishedSlugs,
   getRelatedArticles,
   getContactSettings,
@@ -124,11 +125,16 @@ export default async function ArticlePage({ params }: Props) {
   if (!isLocale(raw)) notFound();
   const locale = raw;
 
-  const [article, site] = await Promise.all([
+  const [article, site, author] = await Promise.all([
     getArticleBySlug(slug, locale),
     getSiteSettings(),
+    getAuthorBySlug("admin"),
   ]);
   if (!article) notFound();
+
+  const boxPosition = site.author_profile?.author_box_position ?? "bottom";
+  const showTopAuthor = (boxPosition === "top" || boxPosition === "both") && Boolean(author);
+  const showBottomAuthor = (boxPosition === "bottom" || boxPosition === "both") && Boolean(author);
 
   const en = locale === "en";
   const base = baseUrl();
@@ -327,7 +333,25 @@ export default async function ArticlePage({ params }: Props) {
             </details>
           ) : null}
 
+          {showTopAuthor && author ? (
+            <AuthorBox
+              author={author}
+              locale={locale}
+              customTitle={site.author_profile?.author_box_title}
+              className="mb-8"
+            />
+          ) : null}
+
           <Markdown content={article.content_md ?? ""} />
+
+          {showBottomAuthor && author ? (
+            <AuthorBox
+              author={author}
+              locale={locale}
+              customTitle={site.author_profile?.author_box_title}
+              className="mt-10 mb-6"
+            />
+          ) : null}
 
           {related.length > 0 ? (
             <section className="mt-14 border-t border-line pt-8">
@@ -354,13 +378,6 @@ export default async function ArticlePage({ params }: Props) {
           </aside>
         ) : null}
       </article>
-
-      <WhatsAppChatButton
-        number={contact.whatsapp_number}
-        message={contact.whatsapp_message}
-        slug={article.slug}
-        label={en ? "Ask via WhatsApp" : "Tanya via WhatsApp"}
-      />
     </div>
   );
 }
