@@ -141,5 +141,7 @@ export const config = {
     "/blog/:path*",
     "/about",
     "/contact",
+    "/google:file*.html",
+    "/BingSiteAuth.xml",
   ],
 };
