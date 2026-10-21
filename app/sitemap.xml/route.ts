@@ -53,6 +53,11 @@ export async function GET() {
       "x-default": `${base}/id/blog`,
     };
 
+    const staticAlternates = (subpath: string): Record<string, string> => ({
+      ...Object.fromEntries(SUPPORTED_LOCALES.map((l) => [l, `${base}/${l}${subpath}`])),
+      "x-default": `${base}/id${subpath}`,
+    });
+
     entries.push(
       {
         url: `${base}/${locale}`,
@@ -73,30 +78,35 @@ export async function GET() {
         lastmod: now,
         changefreq: "monthly",
         priority: 0.5,
+        alternates: staticAlternates("/about"),
       },
       {
         url: `${base}/${locale}/contact`,
         lastmod: now,
         changefreq: "monthly",
         priority: 0.5,
+        alternates: staticAlternates("/contact"),
       },
       {
         url: `${base}/${locale}/author/admin`,
         lastmod: now,
         changefreq: "weekly",
         priority: 0.6,
+        alternates: staticAlternates("/author/admin"),
       },
       {
         url: `${base}/${locale}/category/panduan`,
         lastmod: now,
         changefreq: "weekly",
         priority: 0.7,
+        alternates: staticAlternates("/category/panduan"),
       },
       {
         url: `${base}/${locale}/category/berita-tren`,
         lastmod: now,
         changefreq: "weekly",
         priority: 0.7,
+        alternates: staticAlternates("/category/berita-tren"),
       },
     );
   });
@@ -115,45 +125,54 @@ export async function GET() {
     }
   });
 
-  // 3. Articles grouped by slug for hreflang
-  const bySlug = new Map<
-    string,
-    Partial<Record<(typeof SUPPORTED_LOCALES)[number], (typeof articlesByLocale)[number][number]>>
-  >();
+  // 3. Articles grouped by translation pairing for hreflang
+  const idArticles = articlesByLocale[0] ?? [];
+  const enArticles = articlesByLocale[1] ?? [];
 
-  SUPPORTED_LOCALES.forEach((locale, index) => {
-    for (const article of articlesByLocale[index] ?? []) {
-      const current = bySlug.get(article.slug) ?? {};
-      current[locale] = article;
-      bySlug.set(article.slug, current);
-    }
-  });
+  for (const locale of SUPPORTED_LOCALES) {
+    const isEn = locale === "en";
+    const currentList = isEn ? enArticles : idArticles;
+    const partnerList = isEn ? idArticles : enArticles;
 
-  for (const [slug, variants] of bySlug) {
-    const primary = variants.id ?? variants.en;
-    if (!primary) continue;
+    for (const article of currentList) {
+      // Find translated partner
+      const partner = partnerList.find((p) => {
+        if (isEn) {
+          return (
+            (article.translation_of && p.id === article.translation_of) ||
+            p.slug === article.slug
+          );
+        } else {
+          return (
+            (p.translation_of && p.translation_of === article.id) ||
+            p.slug === article.slug
+          );
+        }
+      });
 
-    const languages: Record<string, string> = {};
-    for (const locale of SUPPORTED_LOCALES) {
-      if (variants[locale]) {
-        languages[locale] = `${base}/${locale}/blog/${slug}`;
+      const languages: Record<string, string> = {
+        [locale]: `${base}/${locale}/blog/${article.slug}`,
+      };
+
+      if (partner) {
+        const partnerLocale = isEn ? "id" : "en";
+        languages[partnerLocale] = `${base}/${partnerLocale}/blog/${partner.slug}`;
+        languages["x-default"] = `${base}/id/blog/${isEn ? partner.slug : article.slug}`;
+      } else {
+        // If single language without translation, x-default points to its own URL (no 404 leakage)
+        languages["x-default"] = `${base}/${locale}/blog/${article.slug}`;
       }
-    }
-    languages["x-default"] = `${base}/id/blog/${slug}`;
 
-    SUPPORTED_LOCALES.forEach((locale) => {
-      const variant = variants[locale];
-      if (!variant) return;
       entries.push({
-        url: `${base}/${locale}/blog/${slug}`,
-        lastmod: variant.updated_at
-          ? new Date(variant.updated_at).toISOString()
+        url: `${base}/${locale}/blog/${article.slug}`,
+        lastmod: article.updated_at
+          ? new Date(article.updated_at).toISOString()
           : now,
         changefreq: "weekly",
         priority: 0.7,
         alternates: languages,
       });
-    });
+    }
   }
 
   // XML Builder with XSL stylesheet

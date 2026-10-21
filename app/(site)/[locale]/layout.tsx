@@ -100,6 +100,12 @@ export default async function SiteLayout({ children, params }: Props & { childre
 
   return (
     <div lang={htmlLang(locale)} className="flex min-h-screen flex-col">
+      {/* Sync document <html> lang with the active locale immediately */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `document.documentElement.lang="${locale === "en" ? "en" : "id"}";`,
+        }}
+      />
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-fg"

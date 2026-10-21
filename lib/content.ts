@@ -7,11 +7,11 @@ import { DEFAULT_LOCALE } from "@/lib/i18n";
 import type { Article, ArticleListItem, Author, AuthorProfile, Category, HomeCopy } from "@/types/db";
 
 const LIST_COLUMNS_WITH_CAT =
-  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,category_slug,language";
+  "id,slug,title,excerpt,published_at,updated_at,created_at,cover_image_url,reading_time_minutes,keywords,author,category_slug,language,translation_of";
 const LIST_COLUMNS_BASE =
-  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author,language";
+  "id,slug,title,excerpt,published_at,updated_at,created_at,cover_image_url,reading_time_minutes,keywords,author,language,translation_of";
 const LIST_COLUMNS_LEGACY =
-  "slug,title,excerpt,published_at,created_at,cover_image_url,reading_time_minutes,keywords,author";
+  "id,slug,title,excerpt,published_at,updated_at,created_at,cover_image_url,reading_time_minutes,keywords,author";
 
 /** Use service role on server if available to bypass RLS failures, fallback to public client */
 function getContentClient() {
@@ -166,8 +166,11 @@ export const getPublishedArticles = unstable_cache(
     // STRICT ISOLATION FOR ENGLISH: never fallback to Indonesian articles
     if (targetLang === "en") {
       let res = await queryArticles(LIST_COLUMNS_WITH_CAT, "en");
-      if (res.error && res.error.message.includes("category_slug")) {
+      if (res.error && (res.error.message.includes("category_slug") || res.error.message.includes("translation_of"))) {
         res = await queryArticles(LIST_COLUMNS_BASE, "en");
+      }
+      if (res.error && res.error.message.includes("translation_of")) {
+        res = await queryArticles(LIST_COLUMNS_LEGACY, "en");
       }
       if (res.error) {
         // If language column doesn't exist, there are definitely 0 English articles
@@ -178,8 +181,11 @@ export const getPublishedArticles = unstable_cache(
 
     // Default locale (id) query with schema resilience
     let res = await queryArticles(LIST_COLUMNS_WITH_CAT, "id");
-    if (res.error && res.error.message.includes("category_slug")) {
+    if (res.error && (res.error.message.includes("category_slug") || res.error.message.includes("translation_of"))) {
       res = await queryArticles(LIST_COLUMNS_BASE, "id");
+    }
+    if (res.error && res.error.message.includes("translation_of")) {
+      res = await queryArticles(LIST_COLUMNS_LEGACY, "id");
     }
     if (res.error && res.error.message.includes("language")) {
       res = await queryArticles(LIST_COLUMNS_LEGACY, "all");

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { getSiteSettings } from "@/lib/content";
 import { env } from "@/lib/env";
 import "./globals.css";
@@ -19,14 +20,21 @@ const geistMono = Geist_Mono({
  * floating WhatsApp) lives in `app/(site)/[locale]/layout.tsx` so the admin
  * dashboard never inherits public navigation.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let locale = "id";
+  try {
+    const h = await headers();
+    const l = h.get("x-locale");
+    if (l === "en") locale = "en";
+  } catch {}
+
   return (
     <html
-      lang="id"
+      lang={locale}
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >

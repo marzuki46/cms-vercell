@@ -146,6 +146,7 @@ export interface GenerationJob {
 
 export type ArticleListItem = Pick<
   Article,
+  | "id"
   | "slug"
   | "title"
   | "excerpt"
@@ -154,6 +155,8 @@ export type ArticleListItem = Pick<
   | "reading_time_minutes"
   | "keywords"
   | "author"
+  | "translation_of"
+  | "updated_at"
 >;
 
 /** A visitor who asked to be contacted on WhatsApp. */
