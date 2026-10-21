@@ -4,6 +4,30 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/en/:path*",
+        headers: [
+          { key: "Content-Language", value: "en" },
+        ],
+      },
+      {
+        source: "/en",
+        headers: [
+          { key: "Content-Language", value: "en" },
+        ],
+      },
+      {
+        source: "/id/:path*",
+        headers: [
+          { key: "Content-Language", value: "id-ID" },
+        ],
+      },
+      {
+        source: "/id",
+        headers: [
+          { key: "Content-Language", value: "id-ID" },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
