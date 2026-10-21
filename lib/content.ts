@@ -403,7 +403,7 @@ export const getArticleTranslation = unstable_cache(
   { revalidate: 300, tags: ["articles"] },
 );
 
-async function buildConfiguredAuthor(slug: string): Promise<Author> {
+async function buildConfiguredAuthor(slug: string, locale?: string): Promise<Author> {
   let site: SiteSettings;
   try {
     site = await getSiteSettings();
@@ -412,30 +412,40 @@ async function buildConfiguredAuthor(slug: string): Promise<Author> {
   }
 
   const p = site.author_profile;
-  const isEn = slug.includes("en");
+  const isEn = locale === "en" || slug.includes("en");
+
+  let role = isEn
+    ? (p?.en_role || "Senior Content Editor & Researcher")
+    : (p?.role || "Tim Riset & Editor Publikasi");
+
+  let bio = isEn
+    ? (p?.en_bio || `Official editorial team of ${site.site_name} dedicated to providing data-driven guides, factual reviews, and trusted insights.`)
+    : (p?.bio || `Tim editorial dan penulis resmi ${site.site_name} berdedikasi untuk menyajikan informasi terpercaya, ulasan faktual, panduan mendalam, dan rekomendasi terbaik bagi para pembaca.`);
+
+  let credentials = isEn && p?.en_credentials && p.en_credentials.length > 0
+    ? p.en_credentials
+    : (p?.credentials && p.credentials.length > 0
+        ? p.credentials
+        : (isEn
+            ? [
+                "Verified Content Creator",
+                "SEO & Industry Research Specialist",
+                "Editorial Board Member",
+              ]
+            : [
+                "Verified Content Creator",
+                "Spesialis Riset & SEO Industri",
+                "Dewan Redaksi Resmi",
+              ]));
 
   return {
     id: "configured-admin",
     slug,
     name: p?.name || site.site_name || "Admin Editorial",
-    role:
-      p?.role ||
-      (isEn
-        ? "Senior Content Editor & Researcher"
-        : "Tim Riset & Editor Publikasi"),
-    bio:
-      p?.bio ||
-      (isEn
-        ? `Official editorial team of ${site.site_name} dedicated to providing data-driven guides, factual reviews, and trusted insights.`
-        : `Tim editorial dan penulis resmi ${site.site_name} berdedikasi untuk menyajikan informasi terpercaya, ulasan faktual, panduan mendalam, dan rekomendasi terbaik bagi para pembaca.`),
+    role,
+    bio,
     avatar_url: p?.avatar_url || null,
-    credentials: p?.credentials && p.credentials.length > 0
-      ? p.credentials
-      : [
-          "Verified Content Creator",
-          "SEO & Industry Research Specialist",
-          "Editorial Board Member",
-        ],
+    credentials,
     social_links: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -443,9 +453,36 @@ async function buildConfiguredAuthor(slug: string): Promise<Author> {
 }
 
 export const getAuthorBySlug = unstable_cache(
-  async (slug: string): Promise<Author | null> => {
+  async (slug: string, locale?: string): Promise<Author | null> => {
     const sb = getContentClient();
-    if (!sb) return await buildConfiguredAuthor(slug);
+    if (!sb) return await buildConfiguredAuthor(slug, locale);
+
+    try {
+      const { data, error } = await sb
+        .from("authors")
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (!error && data) {
+        const author = data as Author;
+        const isEn = locale === "en";
+        // If English, translate defaults or fallback
+        if (isEn && (!author.bio || author.bio.includes("Tim editorial"))) {
+          return await buildConfiguredAuthor(slug, "en");
+        }
+        return author;
+      }
+    } catch {
+      // Table missing or DB error
+    }
+
+    // Always fallback to configured author so the page never 404s
+    return await buildConfiguredAuthor(slug, locale);
+  },
+  ["author-by-slug"],
+  { revalidate: 600, tags: ["settings"] },
+);
 
     try {
       const { data, error } = await sb

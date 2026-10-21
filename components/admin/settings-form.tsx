@@ -47,6 +47,7 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function SettingsForm() {
   const [tab, setTab] = useState<TabId>("general");
+  const [authorLang, setAuthorLang] = useState<"id" | "en">("id");
   const [homeCopyLang, setHomeCopyLang] = useState<"id" | "en">("id");
   const [form, setForm] = useState<Form>(EMPTY);
   const [hasKey, setHasKey] = useState(false);
@@ -578,25 +579,67 @@ export default function SettingsForm() {
               <div>
                 <h2 className="text-base font-bold text-[#1d2327]">Pengaturan Profil Penulis &amp; E-E-A-T</h2>
                 <p className="text-xs text-[#646970]">
-                  Kelola data profil penulis resmi yang tampil di halaman profil <code>/id/author/admin</code> serta kotak penulis (Author Box) di setiap artikel.
+                  Kelola data profil penulis resmi yang tampil di halaman profil <code>/id/author/admin</code> dan <code>/en/author/admin</code> serta kotak penulis (Author Box) di setiap artikel.
                 </p>
               </div>
 
-              <a
-                href="/id/author/admin"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border border-[#2271b1] text-[#2271b1] bg-[#2271b1]/5 hover:bg-[#2271b1]/10 transition"
+              <div className="flex items-center gap-2">
+                <a
+                  href="/id/author/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition"
+                >
+                  <span>🇮🇩 /id/author/admin</span>
+                  <span>↗</span>
+                </a>
+                <a
+                  href="/en/author/admin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded border border-[#2271b1] text-[#2271b1] bg-blue-50/50 hover:bg-blue-50 transition"
+                >
+                  <span>🇬🇧 /en/author/admin</span>
+                  <span>↗</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Language Switcher Tabs for Author Profile */}
+            <div className="flex items-center gap-2 border-b border-[#c3c4c7] pb-2">
+              <span className="text-xs font-bold text-[#50575e] uppercase tracking-wider mr-2">
+                Pilih Bahasa Profil:
+              </span>
+              <button
+                type="button"
+                onClick={() => setAuthorLang("id")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
+                  authorLang === "id"
+                    ? "bg-[#2271b1] text-white shadow-xs"
+                    : "bg-[#f0f0f1] text-[#50575e] hover:bg-white"
+                }`}
               >
-                <span>Lihat Profil Publik (/id/author/admin)</span>
-                <span>↗</span>
-              </a>
+                <span>🇮🇩</span>
+                <span>Bahasa Indonesia (ID)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthorLang("en")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
+                  authorLang === "en"
+                    ? "bg-[#2271b1] text-white shadow-xs"
+                    : "bg-[#f0f0f1] text-[#50575e] hover:bg-white"
+                }`}
+              >
+                <span>🇬🇧</span>
+                <span>English Version (EN)</span>
+              </button>
             </div>
 
             {/* Bagian 1: Data Identitas Penulis */}
             <div className="bg-[#f8fafc] p-4 rounded-lg border border-[#e4e7ec] flex flex-col gap-4">
               <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
-                1. Identitas &amp; Biografi Penulis
+                1. Identitas &amp; Biografi Penulis ({authorLang.toUpperCase()})
               </span>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -608,54 +651,97 @@ export default function SettingsForm() {
                       updateAuthorProfile("name", e.target.value);
                       set("default_author", e.target.value);
                     }}
-                    placeholder="Contoh: Budi Santoso / Tim Redaksi"
+                    placeholder="Contoh: Budi Santoso / Editorial Team"
                     className={FIELD}
                   />
                 </label>
 
                 <label className="flex flex-col gap-1.5">
-                  <span className={LABEL}>Jabatan / Gelar / Keahlian (Role)</span>
+                  <span className={LABEL}>
+                    Jabatan / Gelar / Keahlian ({authorLang === "id" ? "Role ID" : "Role English"})
+                  </span>
                   <input
-                    value={form.author_profile?.role ?? ""}
-                    onChange={(e) => updateAuthorProfile("role", e.target.value)}
-                    placeholder="Contoh: Sales Consultant Resmi & Penulis Otomotif"
+                    value={
+                      authorLang === "id"
+                        ? (form.author_profile?.role ?? "")
+                        : (form.author_profile?.en_role ?? "")
+                    }
+                    onChange={(e) =>
+                      updateAuthorProfile(
+                        authorLang === "id" ? "role" : "en_role",
+                        e.target.value,
+                      )
+                    }
+                    placeholder={
+                      authorLang === "id"
+                        ? "Contoh: Tim Riset & Editor Publikasi"
+                        : "Example: Senior Research Editor & Technical Reviewer"
+                    }
                     className={FIELD}
                   />
                 </label>
 
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className={LABEL}>URL Foto Profil / Avatar (Opsional)</span>
+                  <span className={LABEL}>URL Foto Profil / Avatar (Berlaku untuk semua bahasa)</span>
                   <input
                     value={form.author_profile?.avatar_url ?? ""}
                     onChange={(e) => updateAuthorProfile("avatar_url", e.target.value)}
-                    placeholder="https://images.unsplash.com/... atau URL foto Anda (kosongkan untuk inisial nama)"
+                    placeholder="https://images.unsplash.com/... atau URL foto Anda"
                     className={FIELD}
                   />
                 </label>
 
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className={LABEL}>Biografi Singkat (Bio)</span>
+                  <span className={LABEL}>
+                    Biografi Singkat / Bio ({authorLang === "id" ? "Versi Indonesia" : "English Bio"})
+                  </span>
                   <textarea
                     rows={3}
-                    value={form.author_profile?.bio ?? ""}
-                    onChange={(e) => updateAuthorProfile("bio", e.target.value)}
-                    placeholder="Tuliskan pengalaman, dedikasi, atau latar belakang profesional Anda untuk meningkatkan kredibilitas di mata pembaca dan Google E-E-A-T..."
+                    value={
+                      authorLang === "id"
+                        ? (form.author_profile?.bio ?? "")
+                        : (form.author_profile?.en_bio ?? "")
+                    }
+                    onChange={(e) =>
+                      updateAuthorProfile(
+                        authorLang === "id" ? "bio" : "en_bio",
+                        e.target.value,
+                      )
+                    }
+                    placeholder={
+                      authorLang === "id"
+                        ? "Tuliskan pengalaman, dedikasi, atau latar belakang profesional Anda..."
+                        : "Write professional experience, research background, and credentials in English for E-E-A-T..."
+                    }
                     className={FIELD}
                   />
                 </label>
 
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
-                  <span className={LABEL}>Sertifikasi &amp; Keahlian E-E-A-T (Pisahkan dengan tanda koma)</span>
+                  <span className={LABEL}>
+                    Sertifikasi &amp; Keahlian E-E-A-T ({authorLang === "id" ? "ID" : "EN"}, Pisahkan koma)
+                  </span>
                   <input
-                    value={(form.author_profile?.credentials ?? []).join(", ")}
+                    value={
+                      authorLang === "id"
+                        ? (form.author_profile?.credentials ?? []).join(", ")
+                        : (form.author_profile?.en_credentials ?? []).join(", ")
+                    }
                     onChange={(e) => {
                       const list = e.target.value
                         .split(",")
                         .map((s) => s.trim())
                         .filter(Boolean);
-                      updateAuthorProfile("credentials", list);
+                      updateAuthorProfile(
+                        authorLang === "id" ? "credentials" : "en_credentials",
+                        list,
+                      );
                     }}
-                    placeholder="Contoh: Verified Content Creator, Konsultan Resmi Solo, Ahli Finansial Otomotif"
+                    placeholder={
+                      authorLang === "id"
+                        ? "Verified Content Creator, Spesialis Riset SEO, Dewan Redaksi"
+                        : "Verified Content Creator, SEO Research Specialist, Editorial Board"
+                    }
                     className={FIELD}
                   />
                   <span className="text-[11px] text-[#646970]">
@@ -692,11 +778,26 @@ export default function SettingsForm() {
                 </label>
 
                 <label className="flex flex-col gap-1.5">
-                  <span className={LABEL}>Judul Kotak Penulis</span>
+                  <span className={LABEL}>
+                    Judul Kotak Penulis ({authorLang.toUpperCase()})
+                  </span>
                   <input
-                    value={form.author_profile?.author_box_title ?? ""}
-                    onChange={(e) => updateAuthorProfile("author_box_title", e.target.value)}
-                    placeholder="Default: Ditulis &amp; Diverifikasi Oleh"
+                    value={
+                      authorLang === "id"
+                        ? (form.author_profile?.author_box_title ?? "")
+                        : (form.author_profile?.en_author_box_title ?? "")
+                    }
+                    onChange={(e) =>
+                      updateAuthorProfile(
+                        authorLang === "id" ? "author_box_title" : "en_author_box_title",
+                        e.target.value,
+                      )
+                    }
+                    placeholder={
+                      authorLang === "id"
+                        ? "Default: Ditulis & Diverifikasi Oleh"
+                        : "Default: Written & Verified By"
+                    }
                     className={FIELD}
                   />
                 </label>
@@ -705,9 +806,14 @@ export default function SettingsForm() {
 
             {/* Bagian 3: Preview Tampilan Langsung */}
             <div className="bg-white p-4 rounded-lg border border-[#c3c4c7] flex flex-col gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#1d2327]">
-                Preview Kotak Penulis di Artikel:
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#1d2327]">
+                  Preview Kotak Penulis di Artikel ({authorLang.toUpperCase()}):
+                </span>
+                <span className="text-xs text-[#646970]">
+                  Bahasa aktif: {authorLang === "id" ? "🇮🇩 Indonesia" : "🇬🇧 English"}
+                </span>
+              </div>
 
               <div className="rounded-xl border border-line bg-[#fbfbfd] p-4 sm:p-5 flex flex-col sm:flex-row gap-4 items-start">
                 <div className="h-14 w-14 rounded-full bg-[#2271b1] text-white flex items-center justify-center font-bold text-xl overflow-hidden shrink-0 shadow-sm">
@@ -724,7 +830,9 @@ export default function SettingsForm() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#2271b1]">
-                      {form.author_profile?.author_box_title || "Ditulis & Diverifikasi Oleh"}
+                      {authorLang === "id"
+                        ? (form.author_profile?.author_box_title || "Ditulis & Diverifikasi Oleh")
+                        : (form.author_profile?.en_author_box_title || "Written & Verified By")}
                     </span>
                     <span className="text-[10px] font-bold text-[#008a20] bg-[#edfaef] px-2 py-0.5 rounded-full">
                       ✓ Verified E-E-A-T
@@ -734,15 +842,24 @@ export default function SettingsForm() {
                     {form.author_profile?.name || form.default_author || "Admin Editorial"}
                   </h4>
                   <p className="text-xs font-semibold text-[#50575e]">
-                    {form.author_profile?.role || "Tim Riset & Editor Publikasi"}
+                    {authorLang === "id"
+                      ? (form.author_profile?.role || "Tim Riset & Editor Publikasi")
+                      : (form.author_profile?.en_role || "Senior Content Editor & Researcher")}
                   </p>
                   <p className="text-xs text-[#50575e] mt-1.5 leading-relaxed line-clamp-2">
-                    {form.author_profile?.bio ||
-                      "Tim editorial dan penulis resmi berdedikasi menyajikan ulasan dan panduan terpercaya."}
+                    {authorLang === "id"
+                      ? (form.author_profile?.bio ||
+                        "Tim editorial dan penulis resmi berdedikasi menyajikan ulasan dan panduan terpercaya.")
+                      : (form.author_profile?.en_bio ||
+                        "Official editorial team dedicated to providing data-driven guides, factual reviews, and trusted insights.")}
                   </p>
-                  {form.author_profile?.credentials && form.author_profile.credentials.length > 0 ? (
+                  {((authorLang === "id"
+                    ? form.author_profile?.credentials
+                    : form.author_profile?.en_credentials) ?? []).length > 0 ? (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
-                      {form.author_profile.credentials.map((c) => (
+                      {((authorLang === "id"
+                        ? form.author_profile?.credentials
+                        : form.author_profile?.en_credentials) ?? []).map((c) => (
                         <span key={c} className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium border border-slate-200">
                           🏅 {c}
                         </span>

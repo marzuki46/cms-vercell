@@ -138,7 +138,7 @@ export default async function ArticlePage({ params }: Props) {
   const [article, site, author, translation] = await Promise.all([
     getArticleBySlug(slug, locale),
     getSiteSettings(),
-    getAuthorBySlug("admin"),
+    getAuthorBySlug("admin", locale),
     getArticleTranslation(slug, locale),
   ]);
   if (!article) notFound();

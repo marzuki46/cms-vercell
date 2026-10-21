@@ -37,6 +37,11 @@ export interface AuthorProfile {
   credentials?: string[];
   author_box_position?: "bottom" | "top" | "both" | "none";
   author_box_title?: string;
+  // Multilingual overrides (en)
+  en_role?: string;
+  en_bio?: string;
+  en_credentials?: string[];
+  en_author_box_title?: string;
 }
 
 export interface Settings {

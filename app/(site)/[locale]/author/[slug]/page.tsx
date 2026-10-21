@@ -21,14 +21,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale: raw, slug } = await params;
   if (!isLocale(raw)) return {};
   const locale = raw;
-  const author = await getAuthorBySlug(slug);
+  const author = await getAuthorBySlug(slug, locale);
   if (!author) return { title: "Author not found" };
 
   const base = env.siteUrl || "http://localhost:3000";
-  const title = `${author.name} — ${author.role || "Author"}`;
+  const title = `${author.name} — ${author.role || (locale === "en" ? "Author" : "Penulis")}`;
   const description =
     author.bio ||
-    `Profil penulis, keahlian, dan arsip artikel terbitan ${author.name}.`;
+    (locale === "en"
+      ? `Author profile, expertise, and article archives published by ${author.name}.`
+      : `Profil penulis, keahlian, dan arsip artikel terbitan ${author.name}.`);
 
   return {
     title,
@@ -57,7 +59,7 @@ export default async function AuthorProfilePage({ params }: Props) {
   const locale: Locale = raw;
 
   const [author, site] = await Promise.all([
-    getAuthorBySlug(slug),
+    getAuthorBySlug(slug, locale),
     getSiteSettings(),
   ]);
   if (!author) notFound();

@@ -572,15 +572,33 @@ export async function runAutoTranslate(articleId?: string): Promise<AutoTranslat
     }
     idArticle = data;
   } else {
-    // Find published or draft Indonesian articles that DO NOT have an English translation yet
-    const { data: candidates, error } = await sb
+    // 1. Fetch all candidate Indonesian articles (published or draft)
+    let candidatesQuery = sb
       .from("articles")
       .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug,language,translation_of")
-      .or("language.eq.id,language.is.null")
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(50);
+
+    // Filter language eq id or null (with schema safety fallback if language column absent)
+    let { data: candidates, error } = await candidatesQuery.or("language.eq.id,language.is.null");
+    if (error && error.message.includes("language")) {
+      const retry = await sb
+        .from("articles")
+        .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      candidates = (retry.data ?? []).map((r) => ({ ...r, language: "id", translation_of: null }));
+      error = retry.error;
+    }
 
     if (error || !candidates || candidates.length === 0) {
+      return { translated: false, message: "Belum ada artikel ID yang tersedia di database untuk diterjemahkan." };
+    }
+
+    // Filter out any row that is itself already an EN article
+    const idCandidates = candidates.filter((c) => !c.language || c.language === "id");
+
+    if (idCandidates.length === 0) {
       return { translated: false, message: "Tidak ada konten ID yang ready. Translasi otomatis dihentikan (auto-stop)." };
     }
 
@@ -591,13 +609,16 @@ export async function runAutoTranslate(articleId?: string): Promise<AutoTranslat
       .eq("language", "en")
       .not("translation_of", "is", null);
 
-    const translatedIdSet = new Set((existingEn ?? []).map((e) => e.translation_of));
+    const translatedIdSet = new Set((existingEn ?? []).map((e) => e.translation_of).filter(Boolean));
 
-    // Find the first untranslated ID article
-    idArticle = candidates.find((cand) => !translatedIdSet.has(cand.id));
+    // Find untranslated ID article
+    idArticle = idCandidates.find((cand) => !translatedIdSet.has(cand.id));
 
     if (!idArticle) {
-      return { translated: false, message: "Semua konten ID sudah memiliki versi EN. Translasi otomatis dihentikan (auto-stop)." };
+      return {
+        translated: false,
+        message: `Semua artikel ID (${idCandidates.length} artikel) sudah memiliki pasangan terjemahan English (100% translated). Tidak ada antrean baru.`,
+      };
     }
   }
 
