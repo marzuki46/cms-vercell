@@ -6,16 +6,23 @@ import { apiSend } from "@/lib/client-api";
 
 type Result =
   | { kind: "brainstorm"; created: number; skipped: number; sample: string[] }
-  | { kind: "generate"; title: string; slug: string; wordCount: number; status: string };
+  | { kind: "generate"; title: string; slug: string; wordCount: number; status: string }
+  | {
+      kind: "translate";
+      translated: boolean;
+      message?: string;
+      sourceArticle?: { id: string; title: string; slug: string };
+      englishArticle?: { id: string; title: string; slug: string; status: string };
+    };
 
 export default function GeneratePanel() {
   const router = useRouter();
-  const [busy, setBusy] = useState<"brainstorm" | "generate" | null>(null);
+  const [busy, setBusy] = useState<"brainstorm" | "generate" | "translate" | null>(null);
   const [count, setCount] = useState(3);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
 
-  async function run(action: "brainstorm" | "generate") {
+  async function run(action: "brainstorm" | "generate" | "translate") {
     setBusy(action);
     setError(null);
     setResult(null);
@@ -27,7 +34,7 @@ export default function GeneratePanel() {
           { action, count },
         );
         setResult({ kind: "brainstorm", ...res });
-      } else {
+      } else if (action === "generate") {
         const res = await apiSend<{
           title: string;
           slug: string;
@@ -35,6 +42,14 @@ export default function GeneratePanel() {
           status: string;
         }>("/api/admin/generate", "POST", { action });
         setResult({ kind: "generate", ...res });
+      } else {
+        const res = await apiSend<{
+          translated: boolean;
+          message?: string;
+          sourceArticle?: { id: string; title: string; slug: string };
+          englishArticle?: { id: string; title: string; slug: string; status: string };
+        }>("/api/admin/generate", "POST", { action: "translate" });
+        setResult({ kind: "translate", ...res });
       }
       router.refresh();
     } catch (err) {
@@ -47,11 +62,10 @@ export default function GeneratePanel() {
   return (
     <section className="rounded-lg border border-line p-5">
       <h2 className="text-base font-semibold tracking-tight">
-        Generate konten
+        Generate &amp; Auto-Translate Konten
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Brainstorm membuat ide topik baru. Generate menulis satu artikel
-        long-form dari topik yang disetujui.
+        Brainstorm membuat ide topik. Generate menulis artikel ID. Auto-Translate menerjemahkan artikel ID yang belum punya versi EN (auto-stop jika tidak ada antrean).
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -80,7 +94,15 @@ export default function GeneratePanel() {
           disabled={busy !== null}
           className="rounded bg-[#008a20] px-4 py-2 text-sm font-semibold text-white hover:bg-[#007017] transition disabled:opacity-60 shadow-xs"
         >
-          {busy === "generate" ? "Menulis Artikel…" : "⚡ Tulis 1 Artikel Langsung"}
+          {busy === "generate" ? "Menulis Artikel ID…" : "⚡ Tulis 1 Artikel ID"}
+        </button>
+        <button
+          type="button"
+          onClick={() => run("translate")}
+          disabled={busy !== null}
+          className="rounded bg-[#2271b1] px-4 py-2 text-sm font-semibold text-white hover:bg-[#135e96] transition disabled:opacity-60 shadow-xs"
+        >
+          {busy === "translate" ? "Menerjemahkan ke EN…" : "🌐 Auto-Translate ke EN"}
         </button>
       </div>
 
@@ -117,6 +139,37 @@ export default function GeneratePanel() {
           >
             Buka daftar artikel →
           </a>
+        </div>
+      ) : null}
+
+      {result?.kind === "translate" ? (
+        <div className={`mt-4 border-l-4 p-3 text-sm ${
+          result.translated
+            ? "bg-[#edfaef] border-[#008a20] text-[#1d2327]"
+            : "bg-[#f6f7f7] border-[#8c8f94] text-[#50575e]"
+        }`}>
+          {result.translated ? (
+            <div>
+              <p className="font-bold text-[#008a20]">
+                ✓ Berhasil diterjemahkan ke EN: &ldquo;{result.englishArticle?.title}&rdquo; ({result.englishArticle?.status})
+              </p>
+              <p className="text-xs text-muted mt-1">
+                Dari artikel ID: &ldquo;{result.sourceArticle?.title}&rdquo;
+              </p>
+              <a
+                href={`/admin/articles`}
+                className="mt-2 inline-block text-[#2271b1] font-semibold hover:underline"
+              >
+                Lihat di daftar artikel →
+              </a>
+            </div>
+          ) : (
+            <div>
+              <p className="font-bold text-[#3c434a]">
+                🛑 Auto-Stop: {result.message}
+              </p>
+            </div>
+          )}
         </div>
       ) : null}
     </section>

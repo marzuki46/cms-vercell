@@ -500,4 +500,176 @@ export async function runPublishDue(): Promise<PublishResult> {
 
   return { published: due.length, slugs };
 }
+
+// ---------------------------------------------------------------------------
+// Auto-Translate Single or Next ID Article to English
+// ---------------------------------------------------------------------------
+
+export interface AutoTranslateResult {
+  translated: boolean;
+  message?: string;
+  sourceArticle?: { id: string; title: string; slug: string };
+  englishArticle?: { id: string; title: string; slug: string; status: string };
+}
+
+interface EnglishTranslationPayload {
+  title: string;
+  slug: string;
+  seo_title: string;
+  seo_description: string;
+  excerpt: string;
+  keywords: string[];
+  content_md: string;
+  word_count: number;
+}
+
+export async function runAutoTranslate(articleId?: string): Promise<AutoTranslateResult> {
+  const sb = createAdminClient();
+  const settings = await getSettings();
+  const cfg = routerConfig(settings);
+
+  // 1. Pick target Indonesian article
+  let idArticle: any = null;
+
+  if (articleId) {
+    const { data, error } = await sb
+      .from("articles")
+      .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug")
+      .eq("id", articleId)
+      .single();
+    if (error || !data) {
+      return { translated: false, message: `Artikel ID ${articleId} tidak ditemukan.` };
+    }
+    idArticle = data;
+  } else {
+    // Find published or draft Indonesian articles that DO NOT have an English translation yet
+    const { data: candidates, error } = await sb
+      .from("articles")
+      .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug,language,translation_of")
+      .or("language.eq.id,language.is.null")
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error || !candidates || candidates.length === 0) {
+      return { translated: false, message: "Tidak ada konten ID yang ready. Translasi otomatis dihentikan (auto-stop)." };
+    }
+
+    // Get all EN translations that reference an ID article
+    const { data: existingEn } = await sb
+      .from("articles")
+      .select("translation_of")
+      .eq("language", "en")
+      .not("translation_of", "is", null);
+
+    const translatedIdSet = new Set((existingEn ?? []).map((e) => e.translation_of));
+
+    // Find the first untranslated ID article
+    idArticle = candidates.find((cand) => !translatedIdSet.has(cand.id));
+
+    if (!idArticle) {
+      return { translated: false, message: "Semua konten ID sudah memiliki versi EN. Translasi otomatis dihentikan (auto-stop)." };
+    }
+  }
+
+  // 2. Call AI to translate & adapt into English
+  const model = settings.model_writer || "openai/gpt-4o";
+
+  const systemPrompt = `You are an elite bilingual SEO Content Strategist and Native English Tech/Business/Automotive Copywriter.
+Translate and adapt the user's Indonesian article into native, engaging, high-ranking ENGLISH content for a global audience.
+Strictly adhere to system guidelines:
+1. Native English Adaptation: Do not perform a literal word-for-word translation. Adapt the tone to be fluent, authoritative, and natural American/International English.
+2. Heading Structure (Strict SEO): Do NOT output a leading # Title in content_md (the page template already renders the canonical H1 title). Start directly with the introduction or ## First Heading. Keep all sub-headings (##, ###), bullet lists, and tables intact.
+3. Call-To-Action (CTA): Adapt any Call-To-Action links or buttons into natural English.
+4. Concise Keyword-Focused Slug: Provide a short URL slug (strictly 3 to 5 core English words, maximum 45 characters, no stop words, URL safe).
+5. Output Format: Return ONLY a valid JSON object matching this schema without any preamble:
+{
+  "title": "Compelling English Click-Worthy & SEO Title",
+  "slug": "short-core-keyword-slug",
+  "seo_title": "Google Title Tag (max 60 chars)",
+  "seo_description": "Compelling meta description (max 155 chars)",
+  "excerpt": "English summary in 2-3 sentences",
+  "keywords": ["keyword 1", "keyword 2", "keyword 3", "keyword 4"],
+  "content_md": "Full translated English article in Markdown..."
+}`;
+
+  const userPrompt = `ORIGINAL INDONESIAN ARTICLE:
+TITLE: """${(idArticle.title || "").slice(0, 300)}"""
+EXCERPT: """${(idArticle.excerpt || "").slice(0, 500)}"""
+KEYWORDS: """${(idArticle.keywords || []).slice(0, 20).join(", ").slice(0, 300)}"""
+CONTENT (MARKDOWN):
+"""
+${(idArticle.content_md || "").slice(0, 50000)}
+"""`;
+
+  const res = await chat(cfg, {
+    model,
+    system: systemPrompt,
+    user: userPrompt,
+    temperature: 0.6,
+  });
+
+  const parsed = JSON.parse(
+    res.text
+      .trim()
+      .replace(/^```(?:json)?/i, "")
+      .replace(/```$/, "")
+      .trim()
+  ) as EnglishTranslationPayload;
+
+  const content = (parsed.content_md || "").replace(/^#\s+[^\n]+(?:\r?\n|$)/, "").trim();
+  const words = countWords(content);
+  const baseSlug = toSlug(parsed.slug || parsed.title || "english-article", 5);
+  const enSlug = await uniqueSlug(baseSlug);
+
+  const targetStatus: ArticleStatus = idArticle.status === "published" ? "published" : "draft";
+  const now = new Date().toISOString();
+
+  const insertPayload: Record<string, unknown> = {
+    title: parsed.title || "English Article",
+    slug: enSlug,
+    content_md: content,
+    excerpt: parsed.excerpt || content.slice(0, 200),
+    seo_title: parsed.seo_title || parsed.title || "",
+    seo_description: parsed.seo_description || parsed.excerpt || "",
+    keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+    author: idArticle.author || settings.default_author,
+    category_slug: idArticle.category_slug || null,
+    cover_image_url: idArticle.cover_image_url || null,
+    language: "en",
+    translation_of: idArticle.id,
+    status: targetStatus,
+    published_at: targetStatus === "published" ? (idArticle.published_at || now) : null,
+    word_count: words,
+    reading_time_minutes: readingTimeMinutes(words),
+    model,
+  };
+
+  let { data: newEn, error } = await sb
+    .from("articles")
+    .insert(insertPayload)
+    .select("id,slug,title,status")
+    .single();
+
+  if (error && error.message.includes("translation_of")) {
+    delete insertPayload.translation_of;
+    const retry = await sb.from("articles").insert(insertPayload).select("id,slug,title,status").single();
+    newEn = retry.data;
+    error = retry.error;
+  }
+
+  if (error || !newEn) {
+    throw new Error(error?.message || "Gagal menyimpan artikel hasil translate EN.");
+  }
+
+  if (targetStatus === "published") {
+    publishPaths(newEn.slug);
+  }
+
+  return {
+    translated: true,
+    sourceArticle: { id: idArticle.id, title: idArticle.title, slug: idArticle.slug },
+    englishArticle: { id: newEn.id, title: newEn.title, slug: newEn.slug, status: newEn.status },
+  };
+}
+
 export { cosineSimilarity };
