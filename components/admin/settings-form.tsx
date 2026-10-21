@@ -1027,24 +1027,29 @@ export default function SettingsForm() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                <div className="p-3 rounded border border-gray-200 bg-[#f9fafb]">
-                  <div className="font-bold text-[#1d2327]">1. Generate Konten ID Otomatis</div>
-                  <div className="mt-1 font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded inline-block">
-                    00:04 UTC (11:00 WIB)
+                <div className="p-3 rounded border border-blue-200 bg-blue-50/40 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[#1d2327]">
+                      ⏰ Master Pipeline Harian (All-in-One Cron Job)
+                    </span>
+                    <span className="font-mono text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                      03:00 UTC = 10:00 WIB Pagi
+                    </span>
                   </div>
-                  <p className="mt-1.5 text-[#50575e]">
-                    Menulis artikel baru berdasarkan ide topik yang disetujui atau ide teratas.
+                  <p className="mt-2 text-[#50575e] leading-relaxed text-xs">
+                    Tepat jam <strong>10:00 WIB</strong> setiap hari, sistem otomatis mengeksekusi 1 alur terpadu:
+                    <br />
+                    1. Cek stok ide topik (auto-brainstorm jika stok &lt; 5).
+                    <br />
+                    2. <strong>Tulis 1 artikel ID baru</strong> dari ide terbaik.
+                    <br />
+                    3. <strong>Langsung terjemahkan artikel baru tersebut ke bahasa Inggris</strong> (EN).
+                    <br />
+                    4. Terbitkan artikel terjadwal jika waktunya telah tiba.
                   </p>
-                </div>
-
-                <div className="p-3 rounded border border-purple-200 bg-purple-50/30">
-                  <div className="font-bold text-purple-950">2. Auto-Translate EN Otomatis</div>
-                  <div className="mt-1 font-mono text-purple-700 bg-purple-100 px-2 py-0.5 rounded inline-block">
-                    04:30 UTC (11:30 WIB)
+                  <div className="mt-2 text-[11px] text-emerald-700 font-semibold">
+                    ✓ Sesuai limit Vercel Free: Menggunakan 1 Master Cron Job (aman dari penangguhan / limit Vercel).
                   </div>
-                  <p className="mt-1.5 text-[#50575e]">
-                    Mencari artikel ID yang belum punya versi EN dan menerjemahkannya. Otomatis berhenti jika tidak ada antrean.
-                  </p>
                 </div>
               </div>
 
