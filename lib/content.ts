@@ -537,16 +537,14 @@ export const getArticlesByAuthor = unstable_cache(
       error = retry.error;
     }
 
-    // Strict i18n: if locale is English, never fallback to Indonesian articles
-    if (targetLang === "en") {
-      if (error || !data) return [];
-      return data as unknown as ArticleListItem[];
-    }
-
-    // If no articles found with strict author name, fallback to all published articles for ID
+    // Fallback: If authorName did not match (e.g. author in db is "Admin" while display is site_name),
+    // or if only 0 rows returned, try without strict author name matching for this locale
     if (!error && (!data || data.length === 0)) {
-      const general = await build(LIST_COLUMNS_LEGACY, false);
-      if (!general.error && general.data) {
+      let general = await build(LIST_COLUMNS_WITH_CAT, false);
+      if (general.error && general.error.message.includes("category_slug")) {
+        general = await build(LIST_COLUMNS_BASE, false);
+      }
+      if (!general.error && general.data && general.data.length > 0) {
         return general.data as unknown as ArticleListItem[];
       }
     }
