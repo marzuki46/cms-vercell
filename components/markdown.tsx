@@ -34,10 +34,27 @@ export default function Markdown({ content }: { content: string }) {
             }
             return <a href={href}>{children}</a>;
           },
-          img: ({ src, alt }) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={src ?? ""} alt={alt ?? ""} loading="lazy" decoding="async" />
-          ),
+          img: ({ src, alt, title }) => {
+            const rawSrc = typeof src === "string" ? src : "";
+            let optimizedSrc = rawSrc;
+            if (rawSrc.includes("images.unsplash.com") && !rawSrc.includes("fm=webp")) {
+              optimizedSrc += (rawSrc.includes("?") ? "&" : "?") + "fm=webp&q=80";
+            }
+            const cleanAlt = alt || title || "Ilustrasi teknis panduan";
+            const cleanTitle = title || alt || cleanAlt;
+
+            return (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={optimizedSrc}
+                alt={cleanAlt}
+                title={cleanTitle}
+                loading="lazy"
+                decoding="async"
+                className="rounded-xl border border-line my-4 max-w-full h-auto"
+              />
+            );
+          },
           table: ({ children }) => (
             <div className="table-scroll">
               <table>{children}</table>

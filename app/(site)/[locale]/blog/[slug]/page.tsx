@@ -24,6 +24,7 @@ import {
   type Locale,
 } from "@/lib/i18n";
 import { getCoverImageUrl } from "@/lib/cover";
+import { getOptimizedArticleImage } from "@/lib/tech-images";
 
 export const revalidate = 300;
 
@@ -92,12 +93,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     article.excerpt ||
     plainText(article.content_md ?? "", 155);
 
-  const coverUrl = getCoverImageUrl({
+  const imgMeta = getOptimizedArticleImage({
     title: article.title,
-    topic: article.keywords?.[0],
+    keywords: article.keywords ?? undefined,
     coverImageUrl: article.cover_image_url,
+    locale,
   });
-  const fullCoverUrl = coverUrl.startsWith("http") ? coverUrl : `${base}${coverUrl}`;
+  const fullCoverUrl = imgMeta.src.startsWith("http") ? imgMeta.src : `${base}${imgMeta.src}`;
 
   return {
     title: article.seo_title || article.title,
@@ -119,7 +121,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       modifiedTime: article.updated_at,
       authors: article.author ? [article.author] : undefined,
       tags: article.keywords ?? undefined,
-      images: [{ url: fullCoverUrl, width: 1200, height: 630, alt: article.title }],
+      images: [{ url: fullCoverUrl, width: 1200, height: 630, alt: imgMeta.alt }],
     },
     twitter: {
       card: "summary_large_image",
@@ -171,6 +173,13 @@ export default async function ArticlePage({ params }: Props) {
     (article.seo_title || article.title).slice(0, 110),
   )}&excerpt=${encodeURIComponent((article.excerpt ?? "").slice(0, 160))}`;
 
+  const pageImgMeta = getOptimizedArticleImage({
+    title: article.title,
+    keywords: article.keywords ?? undefined,
+    coverImageUrl: article.cover_image_url,
+    locale,
+  });
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -186,7 +195,7 @@ export default async function ArticlePage({ params }: Props) {
         headline: (article.seo_title || article.title).slice(0, 110),
         alternativeHeadline: article.title,
         description,
-        image: [ogImage],
+        image: [pageImgMeta.src],
         datePublished: article.published_at,
         dateModified: article.updated_at,
         inLanguage: en ? "en" : "id-ID",
@@ -340,17 +349,12 @@ export default async function ArticlePage({ params }: Props) {
             ) : null}
           </header>
 
-          {/* Featured Content Visual Cover (Auto alt, title, and topic banner) */}
+          {/* Featured Content Visual Cover (Optimized WebP, alt tag, and title tag) */}
           <figure className="mb-8 overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
             <img
-              src={getCoverImageUrl({
-                title: article.title,
-                topic: article.keywords?.[0],
-                coverImageUrl: article.cover_image_url,
-                siteName: site.site_name,
-              })}
-              alt={article.title}
-              title={article.title}
+              src={pageImgMeta.src}
+              alt={pageImgMeta.alt}
+              title={pageImgMeta.title}
               loading="eager"
               decoding="async"
               className="aspect-[16/9] w-full object-cover transition-opacity duration-300"

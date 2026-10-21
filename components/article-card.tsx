@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import type { ArticleListItem } from "@/types/db";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n";
-import { getCoverImageUrl } from "@/lib/cover";
+import { getOptimizedArticleImage } from "@/lib/tech-images";
 
 export function formatDate(value: string | null | undefined) {
   if (!value) return "";
@@ -36,10 +36,11 @@ export default function ArticleCard({
 }) {
   const en = locale === "en";
   const href = `/${locale}/blog/${article.slug}`;
-  const coverUrl = getCoverImageUrl({
+  const imgMeta = getOptimizedArticleImage({
     title: article.title,
-    topic: article.keywords?.[0],
+    keywords: article.keywords ?? undefined,
     coverImageUrl: article.cover_image_url,
+    locale,
   });
 
   return (
@@ -47,9 +48,9 @@ export default function ArticleCard({
       {/* Cover Image with Title on Image */}
       <Link href={href} className="overflow-hidden rounded-xl bg-muted/20 block aspect-[16/9] relative">
         <img
-          src={coverUrl}
-          alt={article.title}
-          title={article.title}
+          src={imgMeta.src}
+          alt={imgMeta.alt}
+          title={imgMeta.title}
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

@@ -27,11 +27,17 @@ export function topicIdeasPrompt(
     ? existingTitles.map((t) => `- ${t}`).join("\n")
     : "(none yet)";
 
-  const system = `Kamu adalah content editor dan copywriter media online profesional. Kamu menyusun ide judul artikel blog yang ringkas, natural, berbobot, ramah pembaca, dan optimal untuk Google Search Console. Tulis SEMUA output dalam ${lang}.`;
+  const system = `Kamu adalah content editor dan copywriter media online profesional di bidang teknologi, programming, PC/laptop hardware, cybersecurity, dan web development. Kamu menyusun ide judul artikel blog yang ringkas, natural, berbobot, ramah pembaca, dan optimal untuk Google Search Console. Tulis SEMUA output dalam ${lang}.`;
 
   const user = `Rancang ${count} ide artikel blog yang BARU dan tidak duplikat.
 
 ${brandContext(s)}
+
+FOKUS AREA TOPIK TEKNOLOGI & IT:
+1. Pemrograman & Coding (JavaScript, TypeScript, Python, Framework Modern, API, Database).
+2. Hardware, PC & Laptop Workstation (Setup kerja developer, spesifikasi laptop programming, optimasi PC).
+3. Cybersecurity & Keamanan Data (Proteksi malware, hardening server, SSL/HTTPS, keamanan website).
+4. Web & Cloud Infrastructure (Hosting, VPS, migrasi cloud, SEO teknis).
 
 Artikel yang sudah ada (JANGAN ulangi topik yang sama):
 ${existing}

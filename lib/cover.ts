@@ -1,5 +1,8 @@
+import { matchTechImage } from "./tech-images";
+
 /**
  * Helper to generate consistent dynamic cover image URLs with title and topic.
+ * Falls back to high-quality compressed WebP tech photography when no custom cover is set.
  */
 export function getCoverImageUrl({
   title,
@@ -13,13 +16,14 @@ export function getCoverImageUrl({
   siteName?: string;
 }): string {
   if (coverImageUrl && coverImageUrl.trim().startsWith("http")) {
-    return coverImageUrl.trim();
+    let url = coverImageUrl.trim();
+    if (url.includes("images.unsplash.com") && !url.includes("fm=webp")) {
+      url += (url.includes("?") ? "&" : "?") + "fm=webp&q=80";
+    }
+    return url;
   }
 
-  const params = new URLSearchParams();
-  if (title) params.set("title", title.slice(0, 110));
-  if (topic) params.set("topic", topic.slice(0, 40));
-  if (siteName) params.set("site", siteName.slice(0, 50));
-
-  return `/api/cover?${params.toString()}`;
+  // Use curated high-performance WebP tech photography based on title/topic
+  const matched = matchTechImage(title, topic ? [topic] : []);
+  return matched.url;
 }

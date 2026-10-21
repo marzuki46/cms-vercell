@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/prompts";
 import { countWords, readingTimeMinutes, normalizeTitle } from "@/lib/text";
 import { toSlug, withSuffix } from "@/lib/slug";
+import { matchTechImage } from "@/lib/tech-images";
 import type { ArticleStatus, Settings, Topic } from "@/types/db";
 
 interface OutlineSection {
@@ -373,6 +374,7 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
 
     const status: ArticleStatus = settings.auto_publish ? "published" : "draft";
     const now = new Date().toISOString();
+    const techImg = matchTechImage(outline.title, seo.keywords);
 
     const insertPayload: Record<string, unknown> = {
       topic_id: topic.id,
@@ -384,6 +386,7 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
       seo_description: seo.seo_description,
       keywords: seo.keywords,
       author: settings.default_author,
+      cover_image_url: techImg.url,
       status,
       published_at: status === "published" ? now : null,
       word_count: words,
@@ -669,6 +672,8 @@ ${(idArticle.content_md || "").slice(0, 50000)}
   const targetStatus: ArticleStatus = idArticle.status === "published" ? "published" : "draft";
   const now = new Date().toISOString();
 
+  const enTechImg = matchTechImage(parsed.title || enSlug, Array.isArray(parsed.keywords) ? parsed.keywords : []);
+
   const insertPayload: Record<string, unknown> = {
     title: parsed.title || "English Article",
     slug: enSlug,
@@ -679,7 +684,7 @@ ${(idArticle.content_md || "").slice(0, 50000)}
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
     author: idArticle.author || settings.default_author,
     category_slug: idArticle.category_slug || null,
-    cover_image_url: idArticle.cover_image_url || null,
+    cover_image_url: enTechImg.url,
     language: "en",
     translation_of: idArticle.id,
     status: targetStatus,
