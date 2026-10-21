@@ -59,7 +59,20 @@ export async function proxy(request: NextRequest) {
       url.pathname = legacy;
       return NextResponse.redirect(url, 308);
     }
-    return NextResponse.next({ request });
+
+    const isEn = pathname.startsWith("/en");
+    const locale = isEn ? "en" : "id";
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-locale", locale);
+
+    const res = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    res.headers.set("Content-Language", isEn ? "en" : "id-ID");
+    return res;
   }
 
   let response = NextResponse.next({ request });
