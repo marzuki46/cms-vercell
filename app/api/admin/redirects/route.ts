@@ -16,8 +16,13 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    if (error.code === "42P01") {
-      return NextResponse.json({ redirects: [] });
+    // If table doesn't exist yet in Supabase schema cache
+    if (
+      error.code === "42P01" ||
+      error.message?.includes("schema cache") ||
+      error.message?.includes("Could not find the table")
+    ) {
+      return NextResponse.json({ redirects: [], tableMissing: true });
     }
     return jsonError(error.message, 500);
   }
@@ -70,7 +75,19 @@ export async function POST(request: NextRequest) {
     .select("*")
     .single();
 
-  if (error) return jsonError(error.message, 500);
+  if (error) {
+    if (
+      error.code === "42P01" ||
+      error.message?.includes("schema cache") ||
+      error.message?.includes("Could not find the table")
+    ) {
+      return jsonError(
+        "Tabel 'public.redirects' belum ada di Supabase. Silakan buka menu 'Pengaturan Situs' -> 'Sistem & Database' atau jalankan migrasi SQL redirects di Supabase SQL Editor.",
+        400,
+      );
+    }
+    return jsonError(error.message, 500);
+  }
 
   return NextResponse.json({ success: true, redirect: data });
 }

@@ -9,6 +9,7 @@ export default function RedirectsAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [tableMissing, setTableMissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -18,12 +19,35 @@ export default function RedirectsAdmin() {
   const [statusCode, setStatusCode] = useState<301 | 302>(301);
   const [search, setSearch] = useState("");
 
+  const SQL_REDIRECTS = `-- Buat tabel redirects di Supabase SQL Editor
+create table if not exists public.redirects (
+  id uuid primary key default gen_random_uuid(),
+  from_path text not null unique,
+  to_path text not null,
+  status_code integer not null default 301,
+  hits integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists redirects_from_idx on public.redirects (from_path);
+
+alter table public.redirects enable row level security;
+
+drop policy if exists "redirects_public_read" on public.redirects;
+create policy "redirects_public_read" on public.redirects
+  for select to anon, authenticated using (true);
+
+notify pgrst, 'reload schema';`;
+
   async function loadData() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiGet<{ redirects: RedirectItem[] }>("/api/admin/redirects");
+      const res = await apiGet<{ redirects: RedirectItem[]; tableMissing?: boolean }>(
+        "/api/admin/redirects",
+      );
       setRedirects(res.redirects ?? []);
+      setTableMissing(Boolean(res.tableMissing));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -105,6 +129,24 @@ export default function RedirectsAdmin() {
           >
             Tutup
           </button>
+        </div>
+      ) : null}
+
+      {tableMissing ? (
+        <div className="bg-[#fcf0f1] border-l-4 border-[#d63638] p-4 rounded shadow-xs flex flex-col gap-2">
+          <div className="font-bold text-[#d63638] text-sm">
+            ⚠️ Tabel <code>public.redirects</code> belum dibuat di Supabase
+          </div>
+          <p className="text-xs text-[#3c434a] leading-relaxed">
+            Salin perintah SQL di bawah ini, buka <strong>Supabase Dashboard → Project Anda → SQL Editor → New Query</strong>, tempel dan klik <strong>Run</strong>. Setelah selesai, muat ulang halaman ini.
+          </p>
+          <textarea
+            readOnly
+            rows={10}
+            value={SQL_REDIRECTS}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full rounded border border-[#8c8f94] bg-[#f6f7f7] p-2.5 font-mono text-xs text-[#1d2327] outline-none"
+          />
         </div>
       ) : null}
 
