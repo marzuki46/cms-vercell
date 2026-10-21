@@ -27,20 +27,28 @@ export function topicIdeasPrompt(
     ? existingTitles.map((t) => `- ${t}`).join("\n")
     : "(none yet)";
 
-  const system = `Kamu adalah content strategist SEO senior. Kamu merancang ide artikel blog long-form yang berorientasi search intent dan punya peluang ranking. Tulis SEMUA output dalam ${lang}.`;
+  const system = `Kamu adalah content editor dan copywriter media online profesional. Kamu menyusun ide judul artikel blog yang ringkas, natural, berbobot, ramah pembaca, dan optimal untuk Google Search Console. Tulis SEMUA output dalam ${lang}.`;
 
-  const user = `Rancang ${count} ide artikel blog long-form yang BARU dan tidak duplikat.
+  const user = `Rancang ${count} ide artikel blog yang BARU dan tidak duplikat.
 
 ${brandContext(s)}
 
 Artikel yang sudah ada (JANGAN ulangi topik yang sama):
 ${existing}
 
-Kriteria tiap ide:
-- Judul spesifik, bukan generik, dan menjanjikan manfaat jelas.
-- Punya kata kunci utama (primary keyword) yang realistis dicari orang.
-- Punya sudut pandang (angle) yang membedakan dari artikel sejenis.
-- intent: salah satu dari "informational", "commercial", "transactional", "navigational".
+ATURAN KETAT FORMAT JUDUL (NATURAL & MANUSIAWI):
+1. BATAS PANJANG: Judul WAJIB antara 45 sampai 65 karakter (maksimal 70 karakter). Jangan pernah membuat judul lebih dari 70 karakter.
+2. HINDARI GAYA ROBOT / AI:
+   - DILARANG menggunakan format titik dua bertumpuk (contoh buruk: "Panduan X: Cara Y Tanpa Z").
+   - DILARANG menggunakan kata-kata klise AI seperti: "Mesin Konversi", "Rombak UI Jadul", "Tanpa SaaS Bulanan", "Menyelami", "Mengupas Tuntas", "Komprehensif".
+3. TULIS SECARA NATURAL DAN RINGKAS layaknya jurnalis atau praktisi profesional.
+   Contoh bagus:
+   - "Cara Membersihkan Malware WordPress Secara Manual" (47 karakter)
+   - "Panduan Redesign Website Perusahaan Tanpa Turun Trafik" (52 karakter)
+   - "Integrasi WhatsApp Gateway Mandiri untuk Website Bisnis" (55 karakter)
+   - "Tips Mempercepat Loading Toko Online Berbasis WordPress" (54 karakter)
+4. Punya kata kunci utama (primary keyword) yang realistis dicari pengguna.
+5. intent: salah satu dari "informational", "commercial", "transactional", "navigational".
 
 Balas HANYA dengan JSON array valid, tanpa penjelasan, dengan skema:
 [{ "title": string, "primary_keyword": string, "intent": string, "angle": string }]`;
@@ -53,8 +61,8 @@ export function outlinePrompt(
   topic: Topic,
 ): { system: string; user: string } {
   const lang = languageName(s.language);
-  const system = `Kamu adalah penulis dan editor konten SEO. Buat kerangka artikel yang mendalam dan terstruktur. Tulis dalam ${lang}.`;
-  const user = `Buat kerangka (outline) untuk artikel blog long-form.
+  const system = `Kamu adalah editor konten dan copywriter profesional. Buat kerangka artikel yang mendalam dan terstruktur. Tulis dalam ${lang}.`;
+  const user = `Buat kerangka (outline) untuk artikel blog.
 
 ${brandContext(s)}
 
@@ -62,11 +70,14 @@ Topik: ${topic.title}
 Kata kunci utama: ${topic.primary_keyword ?? "-"}
 Sudut pandang: ${topic.angle ?? "-"}
 
-Aturan:
-- 5 sampai 8 bagian utama (H2).
-- Setiap H2 punya 2 sampai 4 sub-poin (yang layak jadi H3 atau poin bahasan).
-- Sertakan bagian pembuka yang kuat dan bagian kesimpulan.
-- Target total ~1500 kata.
+ATURAN JUDUL ARTIKEL:
+- Panjang judul "title" harus ringkas, maksimal 65 karakter, natural, dan bebas dari format AI klise/titik dua panjang.
+
+Aturan Bagian:
+- 5 sampai 7 bagian utama (H2).
+- Setiap H2 punya 2 sampai 4 sub-poin (H3).
+- Bagian pembuka dan penutup ringkas & langsung ke inti pembahasan.
+- Target total ~1200 - 1500 kata.
 
 Balas HANYA dengan JSON valid:
 {

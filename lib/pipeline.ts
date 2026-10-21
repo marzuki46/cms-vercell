@@ -172,6 +172,30 @@ export async function runBrainstorm(count?: number): Promise<BrainstormResult> {
   }
 }
 
+function cleanNaturalTitle(raw: string): string {
+  let t = raw
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/^Judul:\s*/i, "")
+    .trim();
+
+  // If title has colon separator with excessive length (> 70 chars), keep the primary punchy part
+  if (t.length > 70 && t.includes(":")) {
+    const parts = t.split(":");
+    // If the first part is substantial (>= 25 chars), use it directly
+    if (parts[0].trim().length >= 25 && parts[0].trim().length <= 70) {
+      t = parts[0].trim();
+    } else {
+      // Otherwise combine or truncate smartly
+      t = t.slice(0, 68).trim().replace(/[\s,:;-]+$/, "");
+    }
+  } else if (t.length > 70) {
+    t = t.slice(0, 68).trim().replace(/[\s,:;-]+$/, "");
+  }
+
+  return t;
+}
+
 function extractIdeas(raw: string): TopicIdea[] {
   // Reuse the chat client parser shape without importing the private helper.
   const s = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
@@ -186,7 +210,12 @@ function extractIdeas(raw: string): TopicIdea[] {
   const arr = Array.isArray(parsed)
     ? parsed
     : ((parsed as { topics?: unknown[] }).topics ?? []);
-  return (arr as TopicIdea[]).filter((i) => i && typeof i.title === "string");
+  return (arr as TopicIdea[])
+    .filter((i) => i && typeof i.title === "string")
+    .map((i) => ({
+      ...i,
+      title: cleanNaturalTitle(i.title),
+    }));
 }
 
 // ---------------------------------------------------------------------------
@@ -446,7 +475,8 @@ function extractOutline(raw: string, fallbackTitle: string): Outline {
     points: Array.isArray(sec.points) ? sec.points : [],
     words: sec.words ?? 250,
   }));
-  return { title: parsed.title || fallbackTitle, sections: parsed.sections };
+  const rawTitle = parsed.title || fallbackTitle;
+  return { title: cleanNaturalTitle(rawTitle), sections: parsed.sections };
 }
 
 function extractSeo(raw: string): Partial<SeoMeta> {
