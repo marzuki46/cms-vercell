@@ -11,7 +11,7 @@ import {
 import { env } from "@/lib/env";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n";
 
-export const revalidate = 600;
+export const revalidate = 60;
 
 interface Props {
   params: Promise<{ locale: string; slug: string }>;

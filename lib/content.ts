@@ -504,7 +504,7 @@ export const getAuthors = unstable_cache(
 );
 
 export const getArticlesByAuthor = unstable_cache(
-  async (authorName: string, limit = 20, locale?: string): Promise<ArticleListItem[]> => {
+  async (authorName: string, limit = 24, locale?: string): Promise<ArticleListItem[]> => {
     const sb = getContentClient();
     if (!sb) return [];
     const targetLang = locale || "id";
@@ -537,8 +537,8 @@ export const getArticlesByAuthor = unstable_cache(
       error = retry.error;
     }
 
-    // Fallback: If authorName did not match (e.g. author in db is "Admin" while display is site_name),
-    // or if only 0 rows returned, try without strict author name matching for this locale
+    // Fallback: If authorName did not match (e.g. author in db is "Admin" while display name is site_name),
+    // or if 0 rows returned, fetch all published articles for this locale
     if (!error && (!data || data.length === 0)) {
       let general = await build(LIST_COLUMNS_WITH_CAT, false);
       if (general.error && general.error.message.includes("category_slug")) {
@@ -552,8 +552,8 @@ export const getArticlesByAuthor = unstable_cache(
     if (error) return [];
     return (data ?? []) as unknown as ArticleListItem[];
   },
-  ["articles-by-author"],
-  { revalidate: 300, tags: ["articles"] },
+  ["articles-by-author-v2"],
+  { revalidate: 60, tags: ["articles"] },
 );
 
 export const getCategories = unstable_cache(
