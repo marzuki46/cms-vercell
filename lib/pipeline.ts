@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidateArticles } from "@/lib/revalidate";
 import { getSettings } from "@/lib/settings";
-import { getOpenAI, chat, cosineSimilarity, type NineRouterConfig } from "@/lib/ai/client";
+import { getOpenAI, chat, extractJson, cosineSimilarity, type NineRouterConfig } from "@/lib/ai/client";
 import {
   topicIdeasPrompt,
   outlinePrompt,
@@ -659,13 +659,7 @@ ${(idArticle.content_md || "").slice(0, 50000)}
     temperature: 0.6,
   });
 
-  const parsed = JSON.parse(
-    res.text
-      .trim()
-      .replace(/^```(?:json)?/i, "")
-      .replace(/```$/, "")
-      .trim()
-  ) as EnglishTranslationPayload;
+  const parsed = extractJson<EnglishTranslationPayload>(res.text);
 
   const content = (parsed.content_md || "").replace(/^#\s+[^\n]+(?:\r?\n|$)/, "").trim();
   const words = countWords(content);
