@@ -108,11 +108,34 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  const isApi = pathname.startsWith("/api/");
+
   if (!isLogin && !user) {
+    if (isApi) {
+      return NextResponse.json(
+        { error: "Unauthorized: Sesi login admin tidak valid." },
+        { status: 401 },
+      );
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
     url.search = "";
     url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // Enforce ADMIN_EMAILS allowlist check right at the proxy level
+  if (user && env.adminEmails.length > 0 && !env.adminEmails.includes(user.email?.toLowerCase().trim() ?? "")) {
+    if (isApi) {
+      return NextResponse.json(
+        { error: "Forbidden: Akun ini tidak memiliki akses administrator." },
+        { status: 403 },
+      );
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/login";
+    url.search = "";
+    url.searchParams.set("error", "forbidden");
     return NextResponse.redirect(url);
   }
 

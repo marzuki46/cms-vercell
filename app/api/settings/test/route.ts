@@ -13,6 +13,32 @@ interface TestBody {
   deep?: boolean;
 }
 
+function isSafeUrl(rawUrl: string): boolean {
+  try {
+    const u = new URL(rawUrl);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+    const host = u.hostname.toLowerCase();
+    // Block internal loopback and private clouds (SSRF defense)
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "0.0.0.0" ||
+      host === "::1" ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal") ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+      host === "169.254.169.254" // AWS/GCP metadata service
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Test a 9Router endpoint: list models, optionally run a tiny completion. */
 export async function POST(request: NextRequest) {
   const guard = await requireAdminApi();
@@ -29,6 +55,10 @@ export async function POST(request: NextRequest) {
   const key = (body.key ?? "").trim();
   const model = (body.model ?? "").trim();
   if (!url) return jsonError("Endpoint wajib diisi.");
+
+  if (!isSafeUrl(url)) {
+    return jsonError("Endpoint URL tidak diizinkan demi keamanan (SSRF protection).", 400);
+  }
 
   try {
     const cfg = { url, key };

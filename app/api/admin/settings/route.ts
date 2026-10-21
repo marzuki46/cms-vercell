@@ -55,6 +55,33 @@ export async function PUT(request: Request) {
   delete patch.id;
   delete patch.updated_at;
 
+  // SSRF defense: check ninerouter_url if updated
+  if (patch.ninerouter_url) {
+    try {
+      const u = new URL(patch.ninerouter_url);
+      if (u.protocol !== "https:" && u.protocol !== "http:") {
+        return jsonError("URL 9Router harus berupa http:// atau https://", 400);
+      }
+      const h = u.hostname.toLowerCase();
+      if (
+        h === "localhost" ||
+        h === "127.0.0.1" ||
+        h === "0.0.0.0" ||
+        h === "::1" ||
+        h.endsWith(".local") ||
+        h.endsWith(".internal") ||
+        h.startsWith("10.") ||
+        h.startsWith("192.168.") ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h) ||
+        h === "169.254.169.254"
+      ) {
+        return jsonError("URL 9Router tidak boleh mengarah ke network internal (SSRF protection).", 400);
+      }
+    } catch {
+      return jsonError("Format URL 9Router tidak valid.", 400);
+    }
+  }
+
   try {
     const saved = await saveSettings(patch);
 

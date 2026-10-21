@@ -54,10 +54,18 @@ export async function POST(request: NextRequest) {
   if (options.restoreSettings !== false && Array.isArray(data.settings) && data.settings.length > 0) {
     try {
       for (const row of data.settings) {
-        // Clean fields that might cause collision if id exists
+        const payload = { ...row };
+        // Never overwrite existing live API key with placeholder or empty string from export
+        if (
+          !payload.ninerouter_key ||
+          payload.ninerouter_key === "ENCRYPTED_OR_SET_MANUALLY"
+        ) {
+          delete payload.ninerouter_key;
+        }
+
         const { error } = await sb
           .from("settings")
-          .upsert(row, { onConflict: "id" });
+          .upsert(payload, { onConflict: "id" });
         if (error) results.errors.push(`Settings: ${error.message}`);
         else results.settingsRestored++;
       }

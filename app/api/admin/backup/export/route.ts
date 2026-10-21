@@ -12,9 +12,13 @@ export async function GET() {
   try {
     const sb = createAdminClient();
 
-    // 1. Fetch settings
+    // 1. Fetch settings (mask sensitive API key so it is never dumped in plain text file)
     const settingsRes = await sb.from("settings").select("*");
-    const settings = settingsRes.data ?? [];
+    const rawSettings = settingsRes.data ?? [];
+    const settings = rawSettings.map((s) => ({
+      ...s,
+      ninerouter_key: s.ninerouter_key ? "ENCRYPTED_OR_SET_MANUALLY" : "",
+    }));
 
     // 2. Fetch all articles
     const articlesRes = await sb

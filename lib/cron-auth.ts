@@ -1,8 +1,15 @@
 import type { NextRequest } from "next/server";
+import crypto from "crypto";
 import { env } from "@/lib/env";
 import { isQStashConfigured, verifyQStash } from "@/lib/qstash";
 
 const isDev = () => process.env.NODE_ENV !== "production";
+
+/** Constant-time string comparison to prevent timing attacks */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
 
 /**
  * Authorise a cron invocation via either:
@@ -15,7 +22,9 @@ const isDev = () => process.env.NODE_ENV !== "production";
  */
 export async function authorizeCron(request: NextRequest): Promise<boolean> {
   const auth = request.headers.get("authorization") ?? "";
-  if (env.cronSecret && auth === `Bearer ${env.cronSecret}`) return true;
+  const expected = env.cronSecret ? `Bearer ${env.cronSecret}` : "";
+
+  if (expected && safeEqual(auth, expected)) return true;
 
   const signature = request.headers.get("upstash-signature");
   if (signature) {

@@ -58,23 +58,12 @@ export async function POST(request: NextRequest) {
 
   const model = body.model || settings.model_writer || "openai/gpt-4o";
 
-  const prompt = `You are an elite bilingual SEO Content Strategist and Native English Tech/Business/Automotive Copywriter.
-
-Translate and adapt the following Indonesian article into native, engaging, high-ranking ENGLISH content for a global audience.
-
-ORIGINAL INDONESIAN ARTICLE:
-TITLE: """${idTitle}"""
-EXCERPT: """${body.idExcerpt || ""}"""
-KEYWORDS: """${(body.idKeywords || []).join(", ")}"""
-CONTENT (MARKDOWN):
-"""
-${idContent}
-"""
-
-CRITICAL INSTRUCTIONS:
+  const systemPrompt = `You are an elite bilingual SEO Content Strategist and Native English Tech/Business/Automotive Copywriter.
+Translate and adapt the user's Indonesian article into native, engaging, high-ranking ENGLISH content for a global audience.
+Strictly adhere to system guidelines:
 1. Native English Adaptation: Do not perform a literal word-for-word translation. Adapt the tone to be fluent, authoritative, and natural American/International English.
 2. Heading Structure (Strict SEO): Do NOT output a leading # Title in content_md (the page template already renders the canonical H1 title). Start directly with the introduction or ## First Heading. Keep all sub-headings (##, ###), bullet lists, and tables intact.
-3. Call-To-Action (CTA): Adapt any Call-To-Action links or buttons into natural English (e.g. [Contact us on WhatsApp](...), [Get Promo Deal](...)).
+3. Call-To-Action (CTA): Adapt any Call-To-Action links or buttons into natural English.
 4. Concise Keyword-Focused Slug: Provide a short URL slug (strictly 3 to 5 core English words, maximum 45 characters, no stop words, URL safe).
 5. Output Format: Return ONLY a valid JSON object matching this schema without any preamble:
 {
@@ -87,10 +76,20 @@ CRITICAL INSTRUCTIONS:
   "content_md": "Full translated English article in Markdown..."
 }`;
 
+  const userPrompt = `ORIGINAL INDONESIAN ARTICLE:
+TITLE: """${idTitle.slice(0, 300)}"""
+EXCERPT: """${(body.idExcerpt || "").slice(0, 500)}"""
+KEYWORDS: """${(body.idKeywords || []).slice(0, 20).join(", ").slice(0, 300)}"""
+CONTENT (MARKDOWN):
+"""
+${idContent.slice(0, 50000)}
+"""`;
+
   try {
     const res = await chat(cfg, {
       model,
-      user: prompt,
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.6,
     });
 

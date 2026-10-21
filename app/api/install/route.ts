@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApi } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasServiceRole } from "@/lib/env";
 import {
@@ -182,6 +183,9 @@ notify pgrst, 'reload schema';
 `;
 
 export async function POST() {
+  const guard = await requireAdminApi();
+  if (guard.response) return guard.response;
+
   if (!hasServiceRole()) {
     return NextResponse.json(
       {

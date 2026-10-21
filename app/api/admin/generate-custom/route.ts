@@ -98,40 +98,41 @@ Sertakan bullet points, tips praktis, dan bahasa yang ramah pembaca dan mudah di
 Optimalkan untuk Google Helpful Content & E-E-A-T.
 Bahasa: ${settings.language === "en" ? "English" : "Bahasa Indonesia"}`;
 
-  const prompt = `Anda adalah seorang Master SEO Content Strategist & Senior Tech/Automotive/Business Conversion Copywriter.
-
-INPUT AWAL DARI PENGGUNA (TOPIK / PARAGRAF):
-"""
-${input}
-"""
-
-PANDUAN RISET ENTITY & KEYWORD:
-"""
-${keywordInstruction}
-"""
-
-PANDUAN PENGEMBANGAN KONTEN:
-"""
-${contentInstruction}
-"""
-
-${ctaGuideline ? `INSTRUKSI KONVERSI TRAFIK & CALL TO ACTION (CTA):\n"""\n${ctaGuideline}\n"""\n` : ""}
-
+  const systemPrompt = `Anda adalah seorang Master SEO Content Strategist & Senior Conversion Copywriter.
+Kembangkan topik dari pengguna menjadi artikel blog SEO mendalam dan komprehensif.
 ATURAN OUTPUT:
-Keluarkan HASIL AKHIR HANYA dalam format JSON valid tanpa teks pengantar atau penutup apapun dengan struktur skema berikut:
+Keluarkan HASIL AKHIR HANYA dalam format JSON valid tanpa teks pengantar atau markdown block apapun dengan struktur skema:
 {
   "title": "Judul artikel yang menarik klik (Click-worthy & SEO optimized)",
   "seo_title": "Title tag untuk Google (maks 60 karakter)",
   "seo_description": "Meta deskripsi persuasif (maks 155 karakter)",
   "excerpt": "Ringkasan artikel 2-3 kalimat",
   "keywords": ["keyword 1", "keyword 2", "keyword 3", "keyword 4", "keyword 5"],
-  "content_md": "Isi lengkap artikel dalam format Markdown lengkap dengan heading #, ##, ###, bullet points, CTA link yang rapi, dan pembahasan mendalam..."
+  "content_md": "Isi lengkap artikel dalam format Markdown (mulai langsung dari ## atau paragraf intro, tanpa judul # H1 terpisah), bullet points, CTA link yang rapi..."
 }`;
+
+  const userPrompt = `INPUT AWAL DARI PENGGUNA (TOPIK / PARAGRAF):
+"""
+${input.slice(0, 10000)}
+"""
+
+PANDUAN RISET ENTITY & KEYWORD:
+"""
+${keywordInstruction.slice(0, 3000)}
+"""
+
+PANDUAN PENGEMBANGAN KONTEN:
+"""
+${contentInstruction.slice(0, 5000)}
+"""
+
+${ctaGuideline ? `INSTRUKSI KONVERSI TRAFIK & CALL TO ACTION (CTA):\n"""\n${ctaGuideline.slice(0, 3000)}\n"""\n` : ""}`;
 
   try {
     const res = await chat(cfg, {
       model,
-      user: prompt,
+      system: systemPrompt,
+      user: userPrompt,
       temperature: 0.7,
     });
 
