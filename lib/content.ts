@@ -484,25 +484,6 @@ export const getAuthorBySlug = unstable_cache(
   { revalidate: 600, tags: ["settings"] },
 );
 
-    try {
-      const { data, error } = await sb
-        .from("authors")
-        .select("*")
-        .eq("slug", slug)
-        .maybeSingle();
-
-      if (!error && data) return data as Author;
-    } catch {
-      // Table missing or DB error
-    }
-
-    // Always fallback to configured author so the page never 404s
-    return await buildConfiguredAuthor(slug);
-  },
-  ["author-by-slug"],
-  { revalidate: 600, tags: ["settings"] },
-);
-
 export const getAuthors = unstable_cache(
   async (): Promise<Author[]> => {
     const sb = getContentClient();
