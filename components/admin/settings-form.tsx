@@ -897,6 +897,80 @@ export default function SettingsForm() {
                 </label>
               </div>
             </section>
+
+            {/* Bagian Jadwal Otomasi & Test Pipeline */}
+            <section className="bg-white p-5 rounded-lg border border-[#c3c4c7] shadow-xs flex flex-col gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-[#1d2327]">
+                  ⏰ Jadwal Otomatisasi (Cron Job) &amp; Pengujian Langsung
+                </h3>
+                <p className="text-xs text-[#646970] mt-0.5">
+                  Jadwal cron terdaftar di <code>vercel.json</code>. Anda bisa menguji eksekusi terjemahan langsung di sini sebelum jadwal berjalan otomatis.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                <div className="p-3 rounded border border-gray-200 bg-[#f9fafb]">
+                  <div className="font-bold text-[#1d2327]">1. Generate Konten ID Otomatis</div>
+                  <div className="mt-1 font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded inline-block">
+                    00:04 UTC (11:00 WIB)
+                  </div>
+                  <p className="mt-1.5 text-[#50575e]">
+                    Menulis artikel baru berdasarkan ide topik yang disetujui atau ide teratas.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded border border-purple-200 bg-purple-50/30">
+                  <div className="font-bold text-purple-950">2. Auto-Translate EN Otomatis</div>
+                  <div className="mt-1 font-mono text-purple-700 bg-purple-100 px-2 py-0.5 rounded inline-block">
+                    04:30 UTC (11:30 WIB)
+                  </div>
+                  <p className="mt-1.5 text-[#50575e]">
+                    Mencari artikel ID yang belum punya versi EN dan menerjemahkannya. Otomatis berhenti jika tidak ada antrean.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="text-xs text-[#50575e]">
+                  Uji coba eksekusi translate 1 artikel sekarang untuk memastikan koneksi AI &amp; struktur database bekerja:
+                </div>
+                <button
+                  type="button"
+                  disabled={testing}
+                  onClick={async () => {
+                    setTesting(true);
+                    setNotice(null);
+                    setError(null);
+                    try {
+                      const res = await apiSend<{
+                        translated: boolean;
+                        message?: string;
+                        sourceArticle?: { title: string; slug: string };
+                        englishArticle?: { title: string; slug: string };
+                      }>("/api/admin/generate", "POST", { action: "translate" });
+
+                      if (res.translated && res.englishArticle) {
+                        setNotice(
+                          `✓ Berhasil diuji! Artikel "${res.sourceArticle?.title}" berhasil diterjemahkan menjadi "${res.englishArticle.title}". Sistem otomatisasi siap digunakan.`
+                        );
+                      } else {
+                        setNotice(
+                          `ℹ️ ${res.message || "Tidak ada artikel ID yang perlu diterjemahkan (semua sudah lengkap)."}`
+                        );
+                      }
+                    } catch (err) {
+                      setError(`Gagal uji translate: ${(err as Error).message}`);
+                    } finally {
+                      setTesting(false);
+                    }
+                  }}
+                  className="shrink-0 px-4 py-2 bg-purple-700 text-white rounded text-xs font-semibold hover:bg-purple-800 transition disabled:opacity-60 shadow-xs"
+                >
+                  {testing ? "Sedang Menguji Translate…" : "🧪 Tes Jalankan Auto-Translate Sekarang"}
+                </button>
+              </div>
+            </section>
           </div>
         ) : null}
 
