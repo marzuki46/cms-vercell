@@ -28,24 +28,49 @@ const TABS: { value: ArticleStatus | "all"; label: string }[] = [
   { value: "archived", label: "Sampah/Arsip" },
 ];
 
+interface TranslationStats {
+  totalId: number;
+  translatedEn: number;
+  untranslatedId: number;
+  percentTranslated: number;
+  totalEn: number;
+}
+
+const PAGE_SIZE = 15;
+
 export default function ArticlesAdmin() {
   const [tab, setTab] = useState<ArticleStatus | "all">("all");
+  const [page, setPage] = useState(1);
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<TranslationStats>({
+    totalId: 0,
+    translatedEn: 0,
+    untranslatedId: 0,
+    percentTranslated: 0,
+    totalEn: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const query = tab === "all" ? "" : `?status=${tab}`;
+  const offset = (page - 1) * PAGE_SIZE;
+  const statusParam = tab === "all" ? "" : `&status=${tab}`;
+  const query = `?limit=${PAGE_SIZE}&offset=${offset}${statusParam}`;
 
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiGet<{ articles: Row[]; total: number }>(
-        `/api/admin/articles${query}`,
-      );
+      const res = await apiGet<{
+        articles: Row[];
+        total: number;
+        stats?: TranslationStats;
+      }>(`/api/admin/articles${query}`);
       setRows(res.articles);
+      setTotal(res.total);
+      if (res.stats) setStats(res.stats);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -57,11 +82,15 @@ export default function ArticlesAdmin() {
     let active = true;
     (async () => {
       try {
-        const res = await apiGet<{ articles: Row[]; total: number }>(
-          `/api/admin/articles${query}`,
-        );
+        const res = await apiGet<{
+          articles: Row[];
+          total: number;
+          stats?: TranslationStats;
+        }>(`/api/admin/articles${query}`);
         if (active) {
           setRows(res.articles);
+          setTotal(res.total);
+          if (res.stats) setStats(res.stats);
           setError(null);
         }
       } catch (err) {
@@ -182,25 +211,114 @@ export default function ArticlesAdmin() {
         </Link>
       </div>
 
+      {/* 4 Cards Top: Translation & Articles Statistics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Konten ID */}
+        <div className="bg-white border border-[#c3c4c7] rounded-lg p-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#50575e]">
+              Konten Asli (ID)
+            </span>
+            <span className="text-lg">🇮🇩</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-[#1d2327]">{stats.totalId}</span>
+            <span className="text-xs text-[#646970]">artikel</span>
+          </div>
+          <p className="mt-1 text-[11px] text-[#646970]">
+            Basis artikel bahasa Indonesia
+          </p>
+        </div>
+
+        {/* Card 2: Sudah Terjemah EN */}
+        <div className="bg-white border border-emerald-200 rounded-lg p-4 shadow-xs bg-emerald-50/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+              Berhasil Translate
+            </span>
+            <span className="text-lg">✅</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-emerald-700">{stats.translatedEn}</span>
+            <span className="text-xs text-emerald-800">dari {stats.totalId} ID</span>
+          </div>
+          <p className="mt-1 text-[11px] text-emerald-600 font-medium">
+            Tersedia versi English (/en/)
+          </p>
+        </div>
+
+        {/* Card 3: Belum Terjemah EN */}
+        <div className="bg-white border border-amber-200 rounded-lg p-4 shadow-xs bg-amber-50/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
+              Belum Translate
+            </span>
+            <span className="text-lg">⏳</span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-amber-700">{stats.untranslatedId}</span>
+            <span className="text-xs text-amber-800">antrean ID</span>
+          </div>
+          <p className="mt-1 text-[11px] text-amber-600 font-medium">
+            Siap ditranslasikan otomatis / manual
+          </p>
+        </div>
+
+        {/* Card 4: Progress % */}
+        <div className="bg-white border border-[#2271b1]/30 rounded-lg p-4 shadow-xs bg-blue-50/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#2271b1]">
+              Progress Translate
+            </span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#2271b1] text-white">
+              {stats.percentTranslated}%
+            </span>
+          </div>
+          <div className="mt-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-[#1d2327]">
+                {stats.percentTranslated}%
+              </span>
+              <span className="text-xs text-[#50575e]">
+                {stats.translatedEn}/{stats.totalId} artikel
+              </span>
+            </div>
+            {/* Progress Bar */}
+            <div className="mt-2 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-[#2271b1] h-2 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(100, Math.max(0, stats.percentTranslated))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs / Filter Filter WP style */}
-      <div className="flex items-center gap-2 border-b border-[#c3c4c7] pb-2 text-xs">
-        {TABS.map((t) => (
-          <button
-            key={t.value}
-            type="button"
-            onClick={() => {
-              setLoading(true);
-              setTab(t.value);
-            }}
-            className={`px-2.5 py-1 rounded transition ${
-              tab === t.value
-                ? "font-bold text-[#2271b1] bg-white border border-[#c3c4c7]"
-                : "text-[#50575e] hover:text-[#2271b1]"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between border-b border-[#c3c4c7] pb-2 text-xs">
+        <div className="flex items-center gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setPage(1);
+                setTab(t.value);
+              }}
+              className={`px-2.5 py-1 rounded transition ${
+                tab === t.value
+                  ? "font-bold text-[#2271b1] bg-white border border-[#c3c4c7]"
+                  : "text-[#50575e] hover:text-[#2271b1]"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-[#646970]">
+          Total pos: <strong>{total}</strong>
+        </div>
       </div>
 
       {notice ? (
@@ -482,6 +600,74 @@ export default function ArticlesAdmin() {
           </div>
         )}
       </div>
+      {/* Pagination Controls */}
+      {total > PAGE_SIZE ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-[#c3c4c7] px-4 py-3 rounded shadow-xs text-xs text-[#50575e]">
+          <div>
+            Menampilkan{" "}
+            <strong>
+              {offset + 1}–{Math.min(offset + PAGE_SIZE, total)}
+            </strong>{" "}
+            dari <strong>{total}</strong> pos
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => {
+                setLoading(true);
+                setPage(1);
+              }}
+              className="px-2 py-1 border border-[#c3c4c7] rounded bg-[#f6f7f7] hover:bg-white disabled:opacity-40 font-medium"
+              title="Halaman pertama"
+            >
+              « Pertama
+            </button>
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => {
+                setLoading(true);
+                setPage((p) => Math.max(1, p - 1));
+              }}
+              className="px-2.5 py-1 border border-[#c3c4c7] rounded bg-[#f6f7f7] hover:bg-white disabled:opacity-40 font-medium"
+              title="Halaman sebelumnya"
+            >
+              ‹ Sebelumnya
+            </button>
+
+            <span className="px-2 py-1 font-semibold text-[#1d2327]">
+              Halaman {page} dari {Math.ceil(total / PAGE_SIZE)}
+            </span>
+
+            <button
+              type="button"
+              disabled={page >= Math.ceil(total / PAGE_SIZE) || loading}
+              onClick={() => {
+                setLoading(true);
+                setPage((p) => p + 1);
+              }}
+              className="px-2.5 py-1 border border-[#c3c4c7] rounded bg-[#f6f7f7] hover:bg-white disabled:opacity-40 font-medium"
+              title="Halaman selanjutnya"
+            >
+              Selanjutnya ›
+            </button>
+            <button
+              type="button"
+              disabled={page >= Math.ceil(total / PAGE_SIZE) || loading}
+              onClick={() => {
+                setLoading(true);
+                setPage(Math.ceil(total / PAGE_SIZE));
+              }}
+              className="px-2 py-1 border border-[#c3c4c7] rounded bg-[#f6f7f7] hover:bg-white disabled:opacity-40 font-medium"
+              title="Halaman terakhir"
+            >
+              Terakhir »
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

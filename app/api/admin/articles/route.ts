@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   const sp = request.nextUrl.searchParams;
   const status = sp.get("status");
-  const limit = Math.min(Number(sp.get("limit")) || 50, 200);
+  const limit = Math.min(Number(sp.get("limit")) || 20, 200);
   const offset = Math.max(Number(sp.get("offset")) || 0, 0);
 
   const selectFull =
@@ -33,6 +33,58 @@ export async function GET(request: NextRequest) {
     "id,slug,title,status,published_at,scheduled_for,word_count,reading_time_minutes,author,created_at,topic_id";
 
   const sb = createAdminClient();
+
+  // 1. Fetch translation stats across all articles (independent of pagination and status filter)
+  let stats = {
+    totalId: 0,
+    translatedEn: 0,
+    untranslatedId: 0,
+    percentTranslated: 0,
+    totalEn: 0,
+  };
+
+  try {
+    const { data: allStatsRows } = await sb
+      .from("articles")
+      .select("id,language,translation_of,status");
+
+    if (allStatsRows) {
+      const idRows = allStatsRows.filter(
+        (r) => !r.language || r.language === "id",
+      );
+      const enRows = allStatsRows.filter((r) => r.language === "en");
+
+      // Count which ID articles have at least one EN translation
+      const translatedParentIds = new Set(
+        enRows
+          .map((r) => r.translation_of)
+          .filter(Boolean) as string[],
+      );
+
+      const totalId = idRows.length;
+      let translatedIdCount = 0;
+      for (const idArt of idRows) {
+        if (translatedParentIds.has(idArt.id)) {
+          translatedIdCount++;
+        }
+      }
+
+      const untranslatedId = Math.max(0, totalId - translatedIdCount);
+      const percentTranslated =
+        totalId > 0 ? Math.round((translatedIdCount / totalId) * 100) : 0;
+
+      stats = {
+        totalId,
+        translatedEn: translatedIdCount,
+        untranslatedId,
+        percentTranslated,
+        totalEn: enRows.length,
+      };
+    }
+  } catch (err) {
+    console.error("Failed to compute translation stats:", err);
+  }
+
   let query = sb
     .from("articles")
     .select(selectFull, { count: "exact" })
@@ -79,7 +131,13 @@ export async function GET(request: NextRequest) {
   }
 
   if (error) return jsonError(error.message, 500);
-  return NextResponse.json({ articles: finalArticles, total: count ?? 0 });
+  return NextResponse.json({
+    articles: finalArticles,
+    total: count ?? 0,
+    page: Math.floor(offset / limit) + 1,
+    pageSize: limit,
+    stats,
+  });
 }
 
 export async function POST(request: NextRequest) {
