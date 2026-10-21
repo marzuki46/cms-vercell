@@ -149,6 +149,15 @@ export interface GenerationJob {
   meta: Record<string, unknown> | null;
 }
 
+export interface RedirectItem {
+  id: string;
+  from_path: string;
+  to_path: string;
+  status_code: number;
+  hits: number;
+  created_at: string;
+}
+
 export type ArticleListItem = Pick<
   Article,
   | "id"

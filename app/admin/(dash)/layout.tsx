@@ -11,6 +11,7 @@ const NAV_MAIN = [
 ];
 
 const NAV_MANAGEMENT = [
+  { href: "/admin/redirects", label: "Redirect URL (301)", icon: "🔀" },
   { href: "/admin/leads", label: "Lead WhatsApp", icon: "💬" },
   { href: "/admin/settings", label: "Pengaturan Situs", icon: "⚙️" },
   { href: "/admin/backup", label: "Backup & Restore", icon: "💾" },

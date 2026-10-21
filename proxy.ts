@@ -53,6 +53,36 @@ export async function proxy(request: NextRequest) {
   );
 
   if (!isAdmin) {
+    // 1. Check custom redirects from database
+    if (env.supabaseUrl && env.supabaseAnonKey) {
+      try {
+        const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
+          cookies: {
+            getAll: () => request.cookies.getAll(),
+            setAll: () => {},
+          },
+        });
+        const { data: redirectEntry } = await supabase
+          .from("redirects")
+          .select("to_path,status_code")
+          .eq("from_path", pathname)
+          .maybeSingle();
+
+        if (redirectEntry?.to_path) {
+          const dest = redirectEntry.to_path;
+          const status = redirectEntry.status_code === 302 ? 307 : 308;
+          if (dest.startsWith("http://") || dest.startsWith("https://")) {
+            return NextResponse.redirect(new URL(dest), status);
+          }
+          const targetUrl = request.nextUrl.clone();
+          targetUrl.pathname = dest;
+          return NextResponse.redirect(targetUrl, status);
+        }
+      } catch {
+        // Fallback gracefully on DB failure
+      }
+    }
+
     const legacy = legacyRedirect(pathname);
     if (legacy) {
       const url = request.nextUrl.clone();
