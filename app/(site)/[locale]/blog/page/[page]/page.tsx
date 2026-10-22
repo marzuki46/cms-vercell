@@ -6,17 +6,13 @@ import { getPublishedArticles, getPublishedCount } from "@/lib/content";
 import { env } from "@/lib/env";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n";
 
-export const revalidate = 300;
+export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 10;
 
 interface Props {
   params: Promise<{ locale: string; page: string }>;
-}
-
-export async function generateStaticParams() {
-  // Pagination is discovered at request time; only the shell is prerendered.
-  return [];
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
