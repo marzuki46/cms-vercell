@@ -7,7 +7,7 @@ import { getPublishedArticles, getPublishedCount, getSiteSettings } from "@/lib/
 import { env } from "@/lib/env";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n";
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export const BLOG_PAGE_SIZE = 10;
 
@@ -22,17 +22,20 @@ export async function generateMetadata({
   const { locale: raw } = await params;
   if (!isLocale(raw)) return {};
   const locale = raw;
+  const isEn = locale === "en";
   const base = env.siteUrl || "http://localhost:3000";
-  const site = await getSiteSettings();
 
-  const title = locale === "en" ? "All Articles" : "Semua Artikel";
+  const title = isEn
+    ? "Tech Blog & Development Insights by Tri Marzuki"
+    : "Blog Teknologi, Tutorial Web & SEO oleh Tri Marzuki";
+
+  const description = isEn
+    ? "Explore technical guides, web development tutorials (Next.js, LMS, School Portals, Android), system architecture, AI automation, and Google Maps SEO strategies written by Tri Marzuki."
+    : "Kumpulan artikel edukatif, panduan pembuatan website sekolah, LMS, company profile, aplikasi Android, custom sistem, setup AI, dan strategi optimasi SEO Google Maps oleh Tri Marzuki.";
 
   return {
     title,
-    description:
-      locale === "en"
-        ? `Browse the complete archive of articles and in-depth guides from ${site.site_name}.`
-        : `Arsip lengkap artikel dan panduan dari ${site.site_name}.`,
+    description,
     alternates: {
       canonical: `${base}/${locale}/blog`,
       languages: {
@@ -43,6 +46,7 @@ export async function generateMetadata({
     },
     openGraph: {
       title,
+      description,
       url: `${base}/${locale}/blog`,
       type: "website",
     },
@@ -62,28 +66,45 @@ export default async function BlogIndexPage({ params, searchParams }: Props) {
     getPublishedArticles(BLOG_PAGE_SIZE, 0, locale),
   ]);
 
-  const en = locale === "en";
+  const isEn = locale === "en";
   const base = env.siteUrl || "http://localhost:3000";
   const totalPages = Math.max(1, Math.ceil(total / BLOG_PAGE_SIZE));
 
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    "@id": `${base}/${locale}/blog`,
-    name: en ? "All Articles" : "Semua Artikel",
-    isPartOf: { "@id": `${base}#website` },
-    inLanguage: en ? "en" : "id-ID",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${base}/${locale}/blog`,
+        url: `${base}/${locale}/blog`,
+        name: isEn
+          ? "Tech & Development Blog by Tri Marzuki"
+          : "Blog Teknologi & Panduan SEO oleh Tri Marzuki",
+        description: isEn
+          ? "Practical web engineering, Android app development, custom system tutorials, and SEO strategies."
+          : "Ulasan teknis, panduan website, aplikasi Android, dan strategi SEO Google Maps.",
+        isPartOf: { "@id": `${base}#website` },
+        inLanguage: isEn ? "en" : "id-ID",
+      },
+      {
+        "@type": "Person",
+        "@id": `${base}/${locale}#person`,
+        name: "Tri Marzuki",
+        url: `${base}/${locale}/about`,
+      },
+    ],
   };
 
   return (
     <div className="mx-auto w-full max-w-5xl px-5 py-16">
       <JsonLd data={jsonLd} />
 
+      {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-8 text-sm text-muted">
         <ol className="flex items-center gap-2">
           <li>
             <Link href={`/${locale}`} className="hover:text-accent">
-              {en ? "Home" : "Beranda"}
+              {isEn ? "Home" : "Beranda"}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
@@ -91,34 +112,41 @@ export default async function BlogIndexPage({ params, searchParams }: Props) {
         </ol>
       </nav>
 
+      {/* Blog Hero Header */}
       <div className="mb-10 border-b border-line pb-8">
-        <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
-          {en ? "All Articles" : "Semua Artikel"}
+        <div className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3.5 py-1 text-xs font-semibold text-accent">
+          <span>📚 Technical Knowledge Base</span>
+        </div>
+        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+          {isEn
+            ? "Tech & Development Insights"
+            : "Wawasan & Panduan Teknologi"}
         </h1>
-        <p className="mt-3 text-lg text-muted">
-          {en
-            ? `Browse our archive of ${total} articles, guides and analyses.`
-            : `Arsip lengkap ${total} artikel, panduan, dan ulasan.`}
+        <p className="mt-3 text-base text-muted sm:text-lg">
+          {isEn
+            ? `Curated articles, architecture guides, and SEO walkthroughs by Tri Marzuki. Exploring web development, school portals, LMS, Android apps, AI setup, and Google Maps optimization.`
+            : `Kumpulan ${total} artikel, panduan koding, dan strategi optimasi oleh Tri Marzuki. Membedah pembuatan website sekolah, LMS, company profile, aplikasi Android, sistem kustom, hingga dominasi SEO Google Maps.`}
         </p>
 
         {query ? (
-          <p className="mt-3 text-sm text-muted">
-            {en ? "Results for" : "Hasil pencarian"}:{" "}
+          <p className="mt-4 text-sm text-muted">
+            {isEn ? "Results for" : "Hasil pencarian"}:{" "}
             <strong className="text-foreground">“{query}”</strong> —{" "}
-            {articles.length} {en ? "found" : "ditemukan"}
+            {articles.length} {isEn ? "found" : "ditemukan"}
           </p>
         ) : null}
       </div>
 
+      {/* Articles Grid */}
       {articles.length === 0 ? (
         <div className="rounded-xl border border-line p-12 text-center text-muted">
           {query
-            ? en
-              ? "No articles matched your search."
+            ? isEn
+              ? "No articles matched your search query."
               : "Tidak ada artikel yang cocok dengan pencarian Anda."
-            : en
-              ? "No articles have been published yet."
-              : "Belum ada artikel yang diterbitkan."}
+            : isEn
+              ? "No articles published in this language yet."
+              : "Belum ada artikel yang diterbitkan dalam bahasa ini."}
         </div>
       ) : (
         <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
@@ -128,15 +156,16 @@ export default async function BlogIndexPage({ params, searchParams }: Props) {
         </div>
       )}
 
+      {/* Pagination */}
       {totalPages > 1 && !query ? (
         <nav
-          aria-label={en ? "Pagination" : "Navigasi halaman"}
-          className="mt-12 flex flex-wrap items-center gap-2 text-sm"
+          aria-label={isEn ? "Pagination" : "Navigasi halaman"}
+          className="mt-14 flex flex-wrap items-center gap-2 text-sm"
         >
           <Link
             href={`/${locale}/blog`}
             aria-current="page"
-            className="rounded-md border border-accent bg-accent px-3 py-1.5 text-accent-fg"
+            className="rounded-md border border-accent bg-accent px-3 py-1.5 text-accent-fg font-semibold"
           >
             1
           </Link>
