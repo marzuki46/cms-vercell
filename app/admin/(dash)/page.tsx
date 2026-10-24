@@ -72,7 +72,7 @@ async function loadData() {
       jobs: jobs ?? [],
       articles: articles ?? [],
       totalLeads: totalLeads ?? 0,
-      siteName: settings?.site_name ?? "Situs Anda",
+      siteName: settings?.site_name ?? "Mas Boss",
       postsPerRun: Math.min(Math.max(settings?.posts_per_run ?? 3, 1), 10),
       aiReady: Boolean(settings?.ninerouter_url),
     };

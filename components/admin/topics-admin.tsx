@@ -186,7 +186,26 @@ export default function TopicsAdmin() {
             <li key={t.id} className="flex flex-col gap-2 px-4 py-3 hover:bg-[#fbfbfb]">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium">{t.title}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{t.title}</p>
+                    {t.intent ? (
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                          t.intent.toLowerCase().includes("bofu") || t.intent.toLowerCase().includes("transact")
+                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                            : t.intent.toLowerCase().includes("mofu") || t.intent.toLowerCase().includes("commerc")
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        }`}
+                      >
+                        {t.intent.toLowerCase().includes("bofu") || t.intent.toLowerCase().includes("transact")
+                          ? "BOFU"
+                          : t.intent.toLowerCase().includes("mofu") || t.intent.toLowerCase().includes("commerc")
+                          ? "MOFU"
+                          : "TOFU"}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-0.5 text-xs text-muted">
                     {t.status}
                     {t.primary_keyword ? ` · ${t.primary_keyword}` : ""}

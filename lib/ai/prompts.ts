@@ -39,6 +39,12 @@ FOKUS AREA TOPIK TEKNOLOGI & IT:
 3. Cybersecurity & Keamanan Data (Proteksi malware, hardening server, SSL/HTTPS, keamanan website).
 4. Web & Cloud Infrastructure (Hosting, VPS, migrasi cloud, SEO teknis).
 
+DISTRIBUSI CORONG KONTEN (CONTENT MARKETING FUNNEL):
+Dari ${count} ide yang kamu buat, distribusikan secara seimbang ke 3 tahap funnel berikut:
+- TOFU (Top of Funnel / Edukasi & Awareness): Membahas konsep dasar, apa itu, panduan pemula, tren teknologi, tips umum. Intent: "informational" atau "tofu".
+- MOFU (Middle of Funnel / Evaluasi & Pertimbangan): Perbandingan teknologi (X vs Y), review arsitektur, checklist pemilihan tool/stack, panduan teknis mendalam pemecahan masalah. Intent: "commercial" atau "mofu".
+- BOFU (Bottom of Funnel / Keputusan & Konversi): Jasa pembuatan sistem, biaya setup/migrasi, studi kasus implementasi nyata bisnis, audit keamanan, konsultasi ahli. Intent: "transactional" atau "bofu".
+
 Artikel yang sudah ada (JANGAN ulangi topik yang sama):
 ${existing}
 
@@ -48,16 +54,15 @@ ATURAN KETAT FORMAT JUDUL (NATURAL & MANUSIAWI):
    - DILARANG menggunakan format titik dua bertumpuk (contoh buruk: "Panduan X: Cara Y Tanpa Z").
    - DILARANG menggunakan kata-kata klise AI seperti: "Mesin Konversi", "Rombak UI Jadul", "Tanpa SaaS Bulanan", "Menyelami", "Mengupas Tuntas", "Komprehensif".
 3. TULIS SECARA NATURAL DAN RINGKAS layaknya jurnalis atau praktisi profesional.
-   Contoh bagus:
-   - "Cara Membersihkan Malware WordPress Secara Manual" (47 karakter)
-   - "Panduan Redesign Website Perusahaan Tanpa Turun Trafik" (52 karakter)
-   - "Integrasi WhatsApp Gateway Mandiri untuk Website Bisnis" (55 karakter)
-   - "Tips Mempercepat Loading Toko Online Berbasis WordPress" (54 karakter)
+   Contoh bagus per funnel:
+   - TOFU: "Memahami Cara Kerja Event Loop JavaScript untuk Pemula" (55 karakter)
+   - MOFU: "Perbandingan Supabase vs PostgreSQL Mandiri untuk Startup" (57 karakter)
+   - BOFU: "Estimasi Biaya Pembuatan Website Sekolah dan Portal LMS" (55 karakter)
 4. Punya kata kunci utama (primary keyword) yang realistis dicari pengguna.
-5. intent: salah satu dari "informational", "commercial", "transactional", "navigational".
+5. intent: salah satu dari "tofu", "mofu", "bofu" (atau "informational", "commercial", "transactional").
 
 Balas HANYA dengan JSON array valid, tanpa penjelasan, dengan skema:
-[{ "title": string, "primary_keyword": string, "intent": string, "angle": string }]`;
+[{ "title": string, "primary_keyword": string, "intent": "tofu" | "mofu" | "bofu", "angle": string }]`;
 
   return { system, user };
 }
@@ -75,6 +80,12 @@ ${brandContext(s)}
 Topik: ${topic.title}
 Kata kunci utama: ${topic.primary_keyword ?? "-"}
 Sudut pandang: ${topic.angle ?? "-"}
+Tahap Funnel / Intent: ${topic.intent ?? "general"}
+
+PANDUAN CORONG (FUNNEL STRATEGY):
+- Jika TOFU/Informational: Tekankan edukasi pembaca, pemahaman konsep fundamental, dan solusi langkah demi langkah tanpa hard-selling.
+- Jika MOFU/Commercial: Berikan evaluasi komparatif, kelebihan vs kekurangan, arsitektur sistem, dan checklist pemilihan solusi.
+- Jika BOFU/Transactional: Bahas aspek bisnis nyata, efisiensi operasional, estimasi biaya/waktu pengerjaan, dan Call to Action (CTA) konsultasi di akhir.
 
 ATURAN JUDUL ARTIKEL:
 - Panjang judul "title" harus ringkas, maksimal 65 karakter, natural, dan bebas dari format AI klise/titik dua panjang.

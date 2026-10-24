@@ -4,7 +4,7 @@ import { availableColumns, type OptionalColumn } from "@/lib/settings-schema";
 import type { Settings } from "@/types/db";
 
 export const DEFAULT_SETTINGS: Omit<Settings, "id" | "updated_at"> = {
-  site_name: "Portal Konten SEO",
+  site_name: "Mas Boss",
   site_url: null,
   language: "id",
   theme_template: "modern",

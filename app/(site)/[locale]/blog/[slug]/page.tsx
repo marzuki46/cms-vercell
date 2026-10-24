@@ -6,6 +6,7 @@ import JsonLd from "@/components/jsonld";
 import ArticleCard from "@/components/article-card";
 import TableOfContents from "@/components/table-of-contents";
 import AuthorBox from "@/components/author-box";
+import OnDemandTranslator from "@/components/on-demand-translator";
 import {
   getArticleBySlug,
   getArticleTranslation,
@@ -81,8 +82,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!isLocale(raw)) return {};
   const locale = raw;
 
-  const article = await getArticleBySlug(slug, locale);
-  if (!article || (article.language || "id") !== locale) {
+  let article = await getArticleBySlug(slug, locale);
+  let isFallback = false;
+
+  // On-demand support: if looking for EN article but not translated yet, use ID metadata as fallback
+  if ((!article || (article.language || "id") !== locale) && locale === "en") {
+    const idArticle = await getArticleBySlug(slug, "id");
+    if (idArticle) {
+      article = idArticle;
+      isFallback = true;
+    }
+  }
+
+  if (!article) {
     return { title: "Artikel tidak ditemukan" };
   }
 
@@ -137,18 +149,34 @@ export default async function ArticlePage({ params }: Props) {
   if (!isLocale(raw)) notFound();
   const locale = raw;
 
-  const [article, site, author, translation] = await Promise.all([
+  let [article, site, author, translation] = await Promise.all([
     getArticleBySlug(slug, locale),
     getSiteSettings(),
     getAuthorBySlug("admin", locale),
     getArticleTranslation(slug, locale),
   ]);
+
+  let needsOnDemandTranslation = false;
+  let sourceIdArticle: typeof article = null;
+
+  // On-demand translation trigger: if EN requested but not yet translated into EN
+  if ((!article || (article.language || "id") !== locale) && locale === "en") {
+    const idArticle = await getArticleBySlug(slug, "id");
+    if (idArticle) {
+      sourceIdArticle = idArticle;
+      article = idArticle;
+      needsOnDemandTranslation = true;
+    }
+  }
+
   if (!article) notFound();
 
-  // Strict language gate: if article is not in the requested locale, 404 to prevent duplicate content
-  const articleLang = article.language || "id";
-  if (articleLang !== locale) {
-    notFound();
+  // Strict language gate (only for non on-demand requests)
+  if (!needsOnDemandTranslation) {
+    const articleLang = article.language || "id";
+    if (articleLang !== locale) {
+      notFound();
+    }
   }
 
   const boxPosition = site.author_profile?.author_box_position ?? "bottom";
@@ -385,7 +413,20 @@ export default async function ArticlePage({ params }: Props) {
             />
           ) : null}
 
-          <Markdown content={article.content_md ?? ""} />
+          {needsOnDemandTranslation && sourceIdArticle ? (
+            <OnDemandTranslator
+              sourceArticle={{
+                id: sourceIdArticle.id,
+                title: sourceIdArticle.title,
+                excerpt: sourceIdArticle.excerpt,
+                content_md: sourceIdArticle.content_md,
+                slug: sourceIdArticle.slug,
+              }}
+              initialExcerpt={sourceIdArticle.excerpt || undefined}
+            />
+          ) : (
+            <Markdown content={article.content_md ?? ""} />
+          )}
 
           {showBottomAuthor && author ? (
             <AuthorBox

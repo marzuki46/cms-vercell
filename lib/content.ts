@@ -33,7 +33,7 @@ const isBuildTime = () => process.env.NEXT_PHASE === "phase-production-build";
 
 function fallbackSiteSettings(): SiteSettings {
   return {
-    site_name: env.siteName || "Situs Anda",
+    site_name: env.siteName || "Mas Boss",
     site_url: null,
     language: "id",
     theme_template: "modern",
