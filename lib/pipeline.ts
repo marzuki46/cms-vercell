@@ -565,29 +565,30 @@ export async function runAutoTranslate(articleId?: string): Promise<AutoTranslat
   let idArticle: any = null;
 
   if (articleId) {
-    const { data, error } = await sb
+    const { data } = await sb
       .from("articles")
-      .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug")
+      .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author")
       .eq("id", articleId)
-      .single();
-    if (error || !data) {
-      return { translated: false, message: `Artikel ID ${articleId} tidak ditemukan.` };
+      .maybeSingle();
+    if (data) {
+      idArticle = data;
     }
-    idArticle = data;
-  } else {
-    // 1. Fetch all candidate Indonesian articles (published or draft)
+  }
+
+  // Fallback: if no articleId was given or idArticle was not found, pick from untranslated queue
+  if (!idArticle) {
+    // 1. Fetch candidate Indonesian articles (published or draft)
     let candidatesQuery = sb
       .from("articles")
-      .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug,language,translation_of")
+      .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,language,translation_of")
       .order("created_at", { ascending: false })
       .limit(50);
 
-    // Filter language eq id or null (with schema safety fallback if language column absent)
-    let { data: candidates, error } = await candidatesQuery.or("language.eq.id,language.is.null");
-    if (error && error.message.includes("language")) {
+    let { data: candidates, error } = await candidatesQuery;
+    if (error && (error.message.includes("language") || error.message.includes("translation_of"))) {
       const retry = await sb
         .from("articles")
-        .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author,category_slug")
+        .select("id,title,content_md,excerpt,keywords,status,published_at,cover_image_url,author")
         .order("created_at", { ascending: false })
         .limit(50);
       candidates = (retry.data ?? []).map((r) => ({ ...r, language: "id", translation_of: null }));
@@ -683,7 +684,6 @@ ${(idArticle.content_md || "").slice(0, 50000)}
     seo_description: parsed.seo_description || parsed.excerpt || "",
     keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
     author: idArticle.author || settings.default_author,
-    category_slug: idArticle.category_slug || null,
     cover_image_url: enTechImg.url,
     language: "en",
     translation_of: idArticle.id,
@@ -691,7 +691,6 @@ ${(idArticle.content_md || "").slice(0, 50000)}
     published_at: targetStatus === "published" ? (idArticle.published_at || now) : null,
     word_count: words,
     reading_time_minutes: readingTimeMinutes(words),
-    model,
   };
 
   let { data: newEn, error } = await sb
@@ -700,8 +699,17 @@ ${(idArticle.content_md || "").slice(0, 50000)}
     .select("id,slug,title,status")
     .single();
 
-  if (error && error.message.includes("translation_of")) {
-    delete insertPayload.translation_of;
+  let attempts = 0;
+  while (error && attempts < 5) {
+    attempts++;
+    let stripped = false;
+    for (const col of ["translation_of", "language", "cover_image_url", "category_slug", "keywords"]) {
+      if (col in insertPayload && error.message.toLowerCase().includes(col)) {
+        delete insertPayload[col];
+        stripped = true;
+      }
+    }
+    if (!stripped) break;
     const retry = await sb.from("articles").insert(insertPayload).select("id,slug,title,status").single();
     newEn = retry.data;
     error = retry.error;

@@ -7,7 +7,6 @@ import { env } from "@/lib/env";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n";
 
 export const revalidate = 60;
-export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 10;
 

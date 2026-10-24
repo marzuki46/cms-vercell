@@ -53,8 +53,9 @@ export async function proxy(request: NextRequest) {
   );
 
   if (!isAdmin) {
-    // 1. Check custom redirects from database
-    if (env.supabaseUrl && env.supabaseAnonKey) {
+    // 1. Check custom redirects from database (only for non-localized paths)
+    const isLocalized = pathname.startsWith("/id") || pathname.startsWith("/en");
+    if (!isLocalized && env.supabaseUrl && env.supabaseAnonKey) {
       try {
         const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
           cookies: {
@@ -91,16 +92,7 @@ export async function proxy(request: NextRequest) {
     }
 
     const isEn = pathname.startsWith("/en");
-    const locale = isEn ? "en" : "id";
-
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-locale", locale);
-
-    const res = NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
+    const res = NextResponse.next();
     res.headers.set("Content-Language", isEn ? "en" : "id-ID");
     return res;
   }

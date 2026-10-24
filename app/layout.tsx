@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
 import { getSiteSettings } from "@/lib/content";
 import { env } from "@/lib/env";
 import "./globals.css";
@@ -25,16 +24,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let locale = "id";
-  try {
-    const h = await headers();
-    const l = h.get("x-locale");
-    if (l === "en") locale = "en";
-  } catch {}
-
   return (
     <html
-      lang={locale}
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
