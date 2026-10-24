@@ -8,6 +8,13 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/lib/i18n";
 
 export const revalidate = 60;
 
+export function generateStaticParams() {
+  return [
+    { locale: "id", page: "2" },
+    { locale: "en", page: "2" },
+  ];
+}
+
 const PAGE_SIZE = 10;
 
 interface Props {
