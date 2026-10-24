@@ -7,24 +7,28 @@ const nextConfig: NextConfig = {
         source: "/en/:path*",
         headers: [
           { key: "Content-Language", value: "en" },
+          { key: "Cache-Control", value: "public, max-age=0, s-maxage=60, stale-while-revalidate=86400" },
         ],
       },
       {
         source: "/en",
         headers: [
           { key: "Content-Language", value: "en" },
+          { key: "Cache-Control", value: "public, max-age=0, s-maxage=60, stale-while-revalidate=86400" },
         ],
       },
       {
         source: "/id/:path*",
         headers: [
           { key: "Content-Language", value: "id-ID" },
+          { key: "Cache-Control", value: "public, max-age=0, s-maxage=60, stale-while-revalidate=86400" },
         ],
       },
       {
         source: "/id",
         headers: [
           { key: "Content-Language", value: "id-ID" },
+          { key: "Cache-Control", value: "public, max-age=0, s-maxage=60, stale-while-revalidate=86400" },
         ],
       },
       {
