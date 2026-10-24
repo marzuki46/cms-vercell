@@ -28,6 +28,7 @@ import { getCoverImageUrl } from "@/lib/cover";
 import { getOptimizedArticleImage } from "@/lib/tech-images";
 
 export const revalidate = 300;
+export const dynamicParams = true;
 
 interface Props {
   params: Promise<{ locale: string; slug: string }>;
