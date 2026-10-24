@@ -13,7 +13,6 @@ export const BLOG_PAGE_SIZE = 10;
 
 interface Props {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string }>;
 }
 
 export async function generateMetadata({
@@ -53,13 +52,10 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogIndexPage({ params, searchParams }: Props) {
+export default async function BlogIndexPage({ params }: Props) {
   const { locale: raw } = await params;
   if (!isLocale(raw)) notFound();
   const locale: Locale = raw;
-
-  const { q } = await searchParams;
-  const query = (q ?? "").trim();
 
   const [total, articles] = await Promise.all([
     getPublishedCount(locale),
@@ -127,26 +123,14 @@ export default async function BlogIndexPage({ params, searchParams }: Props) {
             ? `Curated articles, architecture guides, and SEO walkthroughs by Tri Marzuki. Exploring web development, school portals, LMS, Android apps, AI setup, and Google Maps optimization.`
             : `Kumpulan ${total} artikel, panduan koding, dan strategi optimasi oleh Tri Marzuki. Membedah pembuatan website sekolah, LMS, company profile, aplikasi Android, sistem kustom, hingga dominasi SEO Google Maps.`}
         </p>
-
-        {query ? (
-          <p className="mt-4 text-sm text-muted">
-            {isEn ? "Results for" : "Hasil pencarian"}:{" "}
-            <strong className="text-foreground">“{query}”</strong> —{" "}
-            {articles.length} {isEn ? "found" : "ditemukan"}
-          </p>
-        ) : null}
       </div>
 
       {/* Articles Grid */}
       {articles.length === 0 ? (
         <div className="rounded-xl border border-line p-12 text-center text-muted">
-          {query
-            ? isEn
-              ? "No articles matched your search query."
-              : "Tidak ada artikel yang cocok dengan pencarian Anda."
-            : isEn
-              ? "No articles published in this language yet."
-              : "Belum ada artikel yang diterbitkan dalam bahasa ini."}
+          {isEn
+            ? "No articles published in this language yet."
+            : "Belum ada artikel yang diterbitkan dalam bahasa ini."}
         </div>
       ) : (
         <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,7 +141,7 @@ export default async function BlogIndexPage({ params, searchParams }: Props) {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && !query ? (
+      {totalPages > 1 ? (
         <nav
           aria-label={isEn ? "Pagination" : "Navigasi halaman"}
           className="mt-14 flex flex-wrap items-center gap-2 text-sm"
