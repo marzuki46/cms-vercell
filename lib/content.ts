@@ -25,6 +25,7 @@ export interface SiteSettings {
   language: string;
   theme_template: "modern" | "editorial" | "minimal";
   google_site_verification: string | null;
+  adsense_client_id?: string | null;
   home_copy?: HomeCopy | null;
   author_profile?: AuthorProfile | null;
 }
@@ -38,6 +39,7 @@ function fallbackSiteSettings(): SiteSettings {
     language: "id",
     theme_template: "modern",
     google_site_verification: env.googleSiteVerification || null,
+    adsense_client_id: "ca-pub-5979323216501634",
     home_copy: null,
     author_profile: null,
   };
@@ -55,6 +57,7 @@ async function loadSiteSettings(): Promise<SiteSettings> {
     "audience",
     ...(present.theme_template ? ["theme_template"] : []),
     ...(present.google_site_verification ? ["google_site_verification"] : []),
+    ...(present.adsense_client_id ? ["adsense_client_id"] : []),
     ...(present.home_copy ? ["home_copy"] : []),
     ...(present.author_profile ? ["author_profile"] : []),
   ].join(",");
@@ -100,6 +103,20 @@ async function loadSiteSettings(): Promise<SiteSettings> {
     }
   }
 
+  let adsense_client_id: string | null = "ca-pub-5979323216501634";
+  if (present.adsense_client_id && typeof row.adsense_client_id === "string") {
+    adsense_client_id = row.adsense_client_id;
+  } else if (
+    row.niche &&
+    typeof row.niche === "string" &&
+    row.niche.startsWith("__ADS_CONFIG__:")
+  ) {
+    try {
+      const parsed = JSON.parse(row.niche.slice(15));
+      if (parsed.adsense_client_id !== undefined) adsense_client_id = parsed.adsense_client_id;
+    } catch {}
+  }
+
   return {
     site_name: (row.site_name as string | null) || fallbackSiteSettings().site_name,
     site_url: (row.site_url as string | null) ?? null,
@@ -110,6 +127,7 @@ async function loadSiteSettings(): Promise<SiteSettings> {
       (row.google_site_verification as string | null) ||
       env.googleSiteVerification ||
       null,
+    adsense_client_id,
     home_copy,
     author_profile,
   };

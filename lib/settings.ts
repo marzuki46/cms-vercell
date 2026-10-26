@@ -9,6 +9,8 @@ export const DEFAULT_SETTINGS: Omit<Settings, "id" | "updated_at"> = {
   language: "id",
   theme_template: "modern",
   google_site_verification: null,
+  adsense_client_id: "ca-pub-5979323216501634",
+  ads_txt: "google.com, pub-5979323216501634, DIRECT, f08c47fec0942fa0",
   ninerouter_url: null,
   ninerouter_key: null,
   model_writer: "openai/gpt-4o",
@@ -77,6 +79,25 @@ function withDefaults(
     }
   }
 
+  // Fallback for ads config if columns not yet migrated
+  if (present.ads_txt && typeof row.ads_txt === "string") {
+    merged.ads_txt = row.ads_txt;
+  } else if (
+    row.niche &&
+    typeof row.niche === "string" &&
+    row.niche.startsWith("__ADS_CONFIG__:")
+  ) {
+    try {
+      const parsed = JSON.parse(row.niche.slice(15));
+      if (parsed.ads_txt !== undefined) merged.ads_txt = parsed.ads_txt;
+      if (parsed.adsense_client_id !== undefined) merged.adsense_client_id = parsed.adsense_client_id;
+    } catch {}
+  }
+
+  if (present.adsense_client_id && typeof row.adsense_client_id === "string") {
+    merged.adsense_client_id = row.adsense_client_id;
+  }
+
   merged.ninerouter_key = (row.ninerouter_key as string | null) ?? null;
   return merged;
 }
@@ -98,6 +119,8 @@ export async function getSettings(): Promise<Settings> {
         google_site_verification: false,
         home_copy: false,
         author_profile: false,
+        adsense_client_id: false,
+        ads_txt: false,
       };
     }
 
@@ -168,6 +191,15 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   if (!present.author_profile && rest.author_profile) {
     rest.audience = `__AUTHOR_PROFILE__:${JSON.stringify(rest.author_profile)}`;
     delete rest.author_profile;
+  }
+
+  if (!present.ads_txt && (rest.ads_txt || rest.adsense_client_id)) {
+    rest.niche = `__ADS_CONFIG__:${JSON.stringify({
+      ads_txt: rest.ads_txt ?? DEFAULT_SETTINGS.ads_txt,
+      adsense_client_id: rest.adsense_client_id ?? DEFAULT_SETTINGS.adsense_client_id,
+    })}`;
+    delete rest.ads_txt;
+    delete rest.adsense_client_id;
   }
 
   for (const [name, ok] of Object.entries(present)) {

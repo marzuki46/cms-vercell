@@ -8,6 +8,8 @@ export const OPTIONAL_COLUMNS = [
   "google_site_verification",
   "home_copy",
   "author_profile",
+  "adsense_client_id",
+  "ads_txt",
 ] as const;
 
 export type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
@@ -25,6 +27,10 @@ const SQL_FOR_COLUMN: Record<OptionalColumn, string> = {
     "alter table public.settings add column if not exists home_copy jsonb;",
   author_profile:
     "alter table public.settings add column if not exists author_profile jsonb;",
+  adsense_client_id:
+    "alter table public.settings add column if not exists adsense_client_id text;",
+  ads_txt:
+    "alter table public.settings add column if not exists ads_txt text;",
 };
 
 let cache: Record<OptionalColumn, boolean> | null = null;

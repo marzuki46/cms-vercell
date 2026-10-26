@@ -51,6 +51,8 @@ export interface Settings {
   language: string;
   theme_template?: "modern" | "editorial" | "minimal";
   google_site_verification?: string | null;
+  adsense_client_id?: string | null;
+  ads_txt?: string | null;
   home_copy?: HomeCopy | null;
   author_profile?: AuthorProfile | null;
   ninerouter_url: string | null;

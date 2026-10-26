@@ -12,6 +12,8 @@ const EMPTY: Form = {
   language: "id",
   theme_template: "modern",
   google_site_verification: "",
+  adsense_client_id: "ca-pub-5979323216501634",
+  ads_txt: "google.com, pub-5979323216501634, DIRECT, f08c47fec0942fa0",
   ninerouter_url: "",
   ninerouter_key: "",
   model_writer: "",
@@ -97,6 +99,12 @@ export default function SettingsForm() {
     const match = val.match(/content=["']([^"']+)["']/i);
     const token = match ? match[1].trim() : val.trim();
     set("google_site_verification", token);
+  }
+
+  function handleAdSenseInput(val: string) {
+    const match = val.match(/ca-pub-\d+/i);
+    const id = match ? match[0] : val.trim();
+    set("adsense_client_id", id);
   }
 
   useEffect(() => {
@@ -1203,10 +1211,72 @@ export default function SettingsForm() {
               </label>
             </div>
 
+            {/* Metode 3: Google AdSense & ads.txt */}
+            <div className="rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1a73e8] text-xs font-bold text-white">
+                  3
+                </span>
+                <h3 className="text-sm font-bold text-[#1d2327]">
+                  Google AdSense &amp; ads.txt
+                </h3>
+              </div>
+
+              <div className="rounded-md border border-[#cce5ff] bg-[#f0f7ff] p-3 text-xs leading-relaxed text-[#004085]">
+                💡 Tag script AdSense disematkan otomatis di <code>&lt;head&gt;</code> semua halaman publik situs Anda, dan catatan <code>ads.txt</code> langsung disajikan publik di{" "}
+                <a
+                  href="/ads.txt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold underline text-[#2271b1]"
+                >
+                  /ads.txt
+                </a>.
+              </div>
+
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>Google AdSense Publisher ID (Client ID)</span>
+                <input
+                  value={form.adsense_client_id ?? ""}
+                  onChange={(e) => handleAdSenseInput(e.target.value)}
+                  placeholder="ca-pub-5979323216501634 atau tempel seluruh tag <script ...>"
+                  className={FIELD}
+                />
+                <span className="text-xs text-[#646970]">
+                  Bisa ketik Client ID saja (misal: <code>ca-pub-5979323216501634</code>) atau langsung tempel seluruh kode script dari Google AdSense.
+                </span>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className={LABEL}>Isi File ads.txt</span>
+                  <a
+                    href="/ads.txt"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#2271b1] hover:underline font-semibold"
+                  >
+                    Buka /ads.txt ↗
+                  </a>
+                </div>
+                <textarea
+                  rows={4}
+                  value={form.ads_txt ?? ""}
+                  onChange={(e) => set("ads_txt", e.target.value)}
+                  placeholder="google.com, pub-5979323216501634, DIRECT, f08c47fec0942fa0"
+                  className={`${FIELD} font-mono text-xs`}
+                />
+                <span className="text-xs text-[#646970]">
+                  Format baris resmi AdSense: <code>google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0</code>. Anda bisa menambah baris ad network lain di baris baru.
+                </span>
+              </label>
+            </div>
+
             {/* Otomasi SEO Lainnya */}
             <div className="rounded-lg border border-[#dcdcde] bg-[#f6f7f7] p-4">
               <h3 className="text-sm font-bold text-[#1d2327]">Fitur SEO yang Sudah Berjalan Otomatis</h3>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[#50575e]">
+                <li>File ads.txt publik untuk monetisasi: <code>/ads.txt</code></li>
                 <li>Sitemap XML dinamis dengan hreflang ID/EN: <code>/sitemap.xml</code></li>
                 <li>Verifikasi Bing Webmaster: <code>/BingSiteAuth.xml</code></li>
                 <li>robots.txt dengan allowlist bot AI (GPTBot, ClaudeBot, PerplexityBot): <code>/robots.txt</code></li>

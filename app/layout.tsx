@@ -24,12 +24,24 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const site = await getSiteSettings();
+  const adsenseId = site.adsense_client_id || "ca-pub-5979323216501634";
+
   return (
     <html
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {adsenseId ? (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
+      </head>
       <body className="min-h-screen flex flex-col bg-background text-foreground">
         {children}
       </body>
