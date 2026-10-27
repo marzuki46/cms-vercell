@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidateArticles } from "@/lib/revalidate";
+import { notifySearchEngines } from "@/lib/indexer";
 import { getSettings } from "@/lib/settings";
 import { getOpenAI, chat, extractJson, cosineSimilarity, type NineRouterConfig } from "@/lib/ai/client";
 import {
@@ -79,6 +80,11 @@ async function tryEmbed(
 
 function publishPaths(slug: string) {
   revalidateArticles(slug);
+  if (slug) {
+    notifySearchEngines(slug).catch((err) => {
+      console.warn("notifySearchEngines error:", (err as Error).message);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

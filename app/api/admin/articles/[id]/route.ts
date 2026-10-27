@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi, jsonError } from "@/lib/api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidateArticles } from "@/lib/revalidate";
+import { notifySearchEngines } from "@/lib/indexer";
 import { countWords, readingTimeMinutes } from "@/lib/text";
 import type { ArticleStatus } from "@/types/db";
 
@@ -49,6 +50,9 @@ interface PatchBody {
 
 function revalidateArticle(slug: string) {
   revalidateArticles(slug);
+  notifySearchEngines(slug).catch((err) => {
+    console.warn("notifySearchEngines error:", (err as Error).message);
+  });
 }
 
 export async function PATCH(

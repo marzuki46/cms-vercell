@@ -63,6 +63,8 @@ export async function GET() {
     <title>${escapeXml(site.site_name)}</title>
     <link>${base}/id</link>
     <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="${base}/rss.xml" rel="self" type="application/rss+xml"/>
+    <atom:link xmlns:atom="http://www.w3.org/2005/Atom" rel="hub" href="https://pubsubhubbub.appspot.com/"/>
+    <atom:link xmlns:atom="http://www.w3.org/2005/Atom" rel="hub" href="https://pubsubhubbub.superfeedr.com/"/>
     <description>${escapeXml(site.site_name)} — artikel dan panduan terbaru.</description>
     <language>id</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>

@@ -48,6 +48,19 @@ export async function proxy(request: NextRequest) {
     );
   }
 
+  // IndexNow verification text file handler (e.g. /e7c8d9a1f2b34c5d6e7f8a9b0c1d2e3f.txt)
+  const indexNowMatch = pathname.match(/^\/([a-f0-9]{16,64})\.txt$/i);
+  if (indexNowMatch) {
+    const key = indexNowMatch[1];
+    return new NextResponse(`${key}\n`, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=86400",
+      },
+    });
+  }
+
   const isAdmin = ADMIN_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );

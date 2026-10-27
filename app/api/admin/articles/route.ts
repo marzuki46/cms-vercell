@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { toSlug, withSuffix } from "@/lib/slug";
 import { countWords, readingTimeMinutes } from "@/lib/text";
 import { revalidateArticles } from "@/lib/revalidate";
+import { notifySearchEngines } from "@/lib/indexer";
 import type { ArticleStatus } from "@/types/db";
 
 export const dynamic = "force-dynamic";
@@ -233,7 +234,12 @@ export async function POST(request: NextRequest) {
 
   if (error) return jsonError(error.message, 500);
 
-  if (status === "published") revalidateArticles(slug);
+  if (status === "published") {
+    revalidateArticles(slug);
+    notifySearchEngines(slug).catch((err) => {
+      console.warn("notifySearchEngines error:", (err as Error).message);
+    });
+  }
 
   return NextResponse.json({ article: created }, { status: 201 });
 }

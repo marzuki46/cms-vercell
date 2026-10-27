@@ -65,6 +65,37 @@ export default function SettingsForm() {
   const [uploadedHtmlFile, setUploadedHtmlFile] = useState<string | null>(null);
   const [testHtmlFile, setTestHtmlFile] = useState<string>("");
   const [testStatus, setTestStatus] = useState<string | null>(null);
+  const [pinging, setPinging] = useState(false);
+  const [pingResult, setPingResult] = useState<string | null>(null);
+
+  async function triggerSearchEnginePing() {
+    setPinging(true);
+    setPingResult("Mengirim sinyal URL ke IndexNow (Bing, Yandex, Naver) & Google WebSub...");
+    try {
+      const res = await apiSend<{
+        ok: boolean;
+        totalUrls: number;
+        indexNowKey: string;
+        indexNow: { success: boolean; status?: number; error?: string };
+        webSub: { success: boolean; status?: number; error?: string };
+      }>("/api/admin/indexer/ping", "POST", { all: true });
+
+      if (res.ok) {
+        setPingResult(
+          `✅ Berhasil terkirim!\n` +
+          `• Total URL didaftarkan: ${res.totalUrls} halaman\n` +
+          `• IndexNow (Bing / Yandex / Naver): ${res.indexNow.success ? `Status ${res.indexNow.status ?? 200} (Diterima)` : `Gagal: ${res.indexNow.error}`}\n` +
+          `• Google WebSub (/rss.xml): ${res.webSub.success ? `Status ${res.webSub.status ?? 204} (Ping terkirim)` : `Gagal: ${res.webSub.error}`}`
+        );
+      } else {
+        setPingResult("❌ Gagal mengirim sinyal indexing.");
+      }
+    } catch (err) {
+      setPingResult(`❌ Error: ${(err as Error).message}`);
+    } finally {
+      setPinging(false);
+    }
+  }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1272,15 +1303,66 @@ export default function SettingsForm() {
               </label>
             </div>
 
+            {/* Metode 4: Fast Indexing Otomatis (IndexNow & Google WebSub) */}
+            <div className="rounded-lg border border-[#c3c4c7] bg-white p-5 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#008a20] text-xs font-bold text-white">
+                  4
+                </span>
+                <h3 className="text-sm font-bold text-[#1d2327]">
+                  Instant Indexing Otomatis (IndexNow &amp; Google WebSub)
+                </h3>
+              </div>
+
+              <div className="rounded-md border border-[#c3e6cb] bg-[#d4edda] p-3 text-xs leading-relaxed text-[#155724]">
+                🚀 <strong>Otomatis &amp; Tanpa Ribet:</strong> Setiap kali cron harian atau Anda menerbitkan artikel baru (baik ID maupun EN), sistem <strong>otomatis langsung mem-ping IndexNow (Bing, Yandex, Naver)</strong> dan <strong>Google WebSub (/rss.xml)</strong> agar bot mesin pencari langsung meng-crawl artikel tanpa perlu submit manual satu per satu!
+              </div>
+
+              <div className="flex flex-col gap-2 text-xs text-[#50575e]">
+                <p>
+                  Kunci verifikasi IndexNow Anda aktif di:{" "}
+                  <a
+                    href="/e7c8d9a1f2b34c5d6e7f8a9b0c1d2e3f.txt"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[#2271b1] underline font-bold"
+                  >
+                    /e7c8d9a1f2b34c5d6e7f8a9b0c1d2e3f.txt
+                  </a>
+                </p>
+                <p>
+                  Ingin mendaftarkan seluruh artikel lama Anda yang sudah terbit sekaligus ke mesin pencari sekarang?
+                </p>
+
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={pinging}
+                    onClick={triggerSearchEnginePing}
+                    className="inline-flex items-center gap-2 rounded bg-[#008a20] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#00701a] disabled:opacity-50 transition shadow-xs"
+                  >
+                    {pinging ? "⏳ Mengirim sinyal..." : "⚡ Submit Semua Artikel Sekarang ke IndexNow & Google"}
+                  </button>
+                </div>
+
+                {pingResult ? (
+                  <div className="mt-2 rounded border border-[#dcdcde] bg-[#f6f7f7] p-3 font-mono text-xs whitespace-pre-wrap leading-relaxed text-[#1d2327]">
+                    {pingResult}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
             {/* Otomasi SEO Lainnya */}
             <div className="rounded-lg border border-[#dcdcde] bg-[#f6f7f7] p-4">
               <h3 className="text-sm font-bold text-[#1d2327]">Fitur SEO yang Sudah Berjalan Otomatis</h3>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[#50575e]">
+                <li><strong>IndexNow API (Bing, Yandex, Naver)</strong>: Ping instan tiap artikel terbit</li>
+                <li><strong>Google WebSub (PubSubHubbub)</strong>: Notifikasi langsung ke Googlebot via <code>/rss.xml</code></li>
                 <li>File ads.txt publik untuk monetisasi: <code>/ads.txt</code></li>
                 <li>Sitemap XML dinamis dengan hreflang ID/EN: <code>/sitemap.xml</code></li>
                 <li>Verifikasi Bing Webmaster: <code>/BingSiteAuth.xml</code></li>
                 <li>robots.txt dengan allowlist bot AI (GPTBot, ClaudeBot, PerplexityBot): <code>/robots.txt</code></li>
-                <li>RSS Feed artikel: <code>/rss.xml</code></li>
                 <li>OpenGraph, Twitter Card &amp; gambar sosial otomatis 1200x630</li>
                 <li>Schema JSON-LD: <code>BlogPosting</code>, <code>BreadcrumbList</code>, <code>Person</code> (E-E-A-T), <code>CollectionPage</code></li>
                 <li>Pengalihan otomatis 301 untuk slug lama dan canonical tags</li>
