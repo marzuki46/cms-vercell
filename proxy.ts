@@ -218,5 +218,7 @@ export const config = {
     "/contact",
     "/google:file*.html",
     "/BingSiteAuth.xml",
+    "/e7c8d9a1f2b34c5d6e7f8a9b0c1d2e3f.txt",
+    "/indexnow:file*.txt",
   ],
 };
