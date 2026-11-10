@@ -51,6 +51,8 @@ export default function ArticleCard({
           src={imgMeta.src}
           alt={imgMeta.alt}
           title={imgMeta.title}
+          width={640}
+          height={360}
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"

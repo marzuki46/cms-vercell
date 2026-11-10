@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import ArticleCard from "@/components/article-card";
 import { getPublishedArticles, getPublishedCount } from "@/lib/content";
 import { env } from "@/lib/env";
@@ -28,6 +28,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const n = Number(page);
   const base = env.siteUrl || "http://localhost:3000";
 
+  const otherLocale = locale === "en" ? "id" : "en";
+  const [totalCurrent, totalOther] = await Promise.all([
+    getPublishedCount(locale),
+    getPublishedCount(otherLocale),
+  ]);
+
+  const totalPagesCurrent = Math.max(1, Math.ceil(totalCurrent / PAGE_SIZE));
+  const totalPagesOther = Math.max(1, Math.ceil(totalOther / PAGE_SIZE));
+
+  if (!Number.isInteger(n) || n < 1 || n > totalPagesCurrent) {
+    return {};
+  }
+
   const title =
     n > 1
       ? locale === "en"
@@ -37,17 +50,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ? "All Articles"
         : "Semua Artikel";
 
+  const languages: Record<string, string> = {
+    [locale]: n > 1 ? `${base}/${locale}/blog/page/${n}` : `${base}/${locale}/blog`,
+  };
+
+  if (n <= totalPagesOther) {
+    languages[otherLocale] = n > 1 ? `${base}/${otherLocale}/blog/page/${n}` : `${base}/${otherLocale}/blog`;
+    languages["x-default"] = `${base}/${DEFAULT_LOCALE}/blog/page/${n}`;
+  } else {
+    languages["x-default"] = languages[locale];
+  }
+
   return {
     title,
     alternates: {
       canonical: n > 1 ? `${base}/${locale}/blog/page/${n}` : `${base}/${locale}/blog`,
-      languages: {
-        id: `${base}/id/blog/page/${n}`,
-        en: `${base}/en/blog/page/${n}`,
-        "x-default": `${base}/${DEFAULT_LOCALE}/blog/page/${n}`,
-      },
+      languages,
     },
-    robots: n > 1 ? { index: true, follow: true } : { index: true, follow: true },
+    robots: { index: true, follow: true },
   };
 }
 
@@ -61,7 +81,9 @@ export default async function BlogPagedPage({ params }: Props) {
 
   const total = await getPublishedCount(locale);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  if (n > totalPages) notFound();
+  if (n > totalPages) {
+    redirect(totalPages > 1 ? `/${locale}/blog/page/${totalPages}` : `/${locale}/blog`);
+  }
 
   const articles = await getPublishedArticles(PAGE_SIZE, (n - 1) * PAGE_SIZE, locale);
   const en = locale === "en";

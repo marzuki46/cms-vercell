@@ -37,6 +37,10 @@ export default function AuthorBox({
             <img
               src={author.avatar_url}
               alt={author.name}
+              width={64}
+              height={64}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover"
             />
           ) : (

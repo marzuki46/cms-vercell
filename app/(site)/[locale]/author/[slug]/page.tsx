@@ -132,6 +132,10 @@ export default async function AuthorProfilePage({ params }: Props) {
               <img
                 src={author.avatar_url}
                 alt={author.name}
+                width={96}
+                height={96}
+                loading="eager"
+                decoding="async"
                 className="h-full w-full rounded-full object-cover"
               />
             ) : (

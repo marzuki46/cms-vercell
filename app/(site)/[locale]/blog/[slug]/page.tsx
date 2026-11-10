@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Markdown from "@/components/markdown";
 import JsonLd from "@/components/jsonld";
 import ArticleCard from "@/components/article-card";
@@ -86,6 +86,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   let article = await getArticleBySlug(slug, locale);
   let isFallback = false;
 
+  // Cross-language detection: if page is not found in requested locale,
+  // check if it exists in the other locale (will be redirected in ArticlePage)
+  if (!article) {
+    const otherLocale = locale === "en" ? "id" : "en";
+    const otherArticle = await getArticleBySlug(slug, otherLocale);
+    if (otherArticle) {
+      const pair = await getArticleTranslation(slug, otherLocale);
+      if (pair && pair.locale === locale) {
+        return {};
+      }
+    }
+  }
+
   // On-demand support: if looking for EN article but not translated yet, use ID metadata as fallback
   if ((!article || (article.language || "id") !== locale) && locale === "en") {
     const idArticle = await getArticleBySlug(slug, "id");
@@ -99,6 +112,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Artikel tidak ditemukan" };
   }
 
+  const site = await getSiteSettings();
   const base = baseUrl();
   const url = `${base}/${locale}/blog/${slug}`;
   const description =
@@ -114,8 +128,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
   const fullCoverUrl = imgMeta.src.startsWith("http") ? imgMeta.src : `${base}${imgMeta.src}`;
 
+  const rawTitle = article.seo_title || article.title;
+  const localizedTitle = isFallback ? `${rawTitle} (English)` : rawTitle;
+
+  // If title is already long (>= 48 chars) or contains site name, use absolute to prevent template '%s · Mas Boss' bloat:
+  const title =
+    localizedTitle.length >= 48 || localizedTitle.toLowerCase().includes(site.site_name.toLowerCase())
+      ? { absolute: localizedTitle }
+      : localizedTitle;
+
+  const displayTitle = typeof title === "string" ? title : title.absolute;
+
   return {
-    title: article.seo_title || article.title,
+    title,
     description,
     keywords: article.keywords ?? undefined,
     authors: article.author ? [{ name: article.author }] : undefined,
@@ -125,7 +150,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     openGraph: {
       type: "article",
-      title: article.seo_title || article.title,
+      title: displayTitle,
       description,
       url,
       siteName: undefined,
@@ -138,7 +163,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: article.seo_title || article.title,
+      title: displayTitle,
       description,
       images: [fullCoverUrl],
     },
@@ -160,10 +185,28 @@ export default async function ArticlePage({ params }: Props) {
   let needsOnDemandTranslation = false;
   let sourceIdArticle: typeof article = null;
 
-  // On-demand translation trigger: if EN requested but not yet translated into EN
-  if ((!article || (article.language || "id") !== locale) && locale === "en") {
+  // Cross-language resolution:
+  // Case 1: ID requested, but slug belongs to an EN article
+  if (!article && locale === "id") {
+    const enArticle = await getArticleBySlug(slug, "en");
+    if (enArticle) {
+      const idPair = await getArticleTranslation(slug, "en");
+      if (idPair && idPair.locale === "id") {
+        redirect(`/id/blog/${idPair.slug}`);
+      }
+      redirect(`/en/blog/${slug}`);
+    }
+  }
+
+  // Case 2: EN requested, check if already translated in database
+  if (!article && locale === "en") {
     const idArticle = await getArticleBySlug(slug, "id");
     if (idArticle) {
+      const enPair = await getArticleTranslation(slug, "id");
+      if (enPair && enPair.locale === "en" && enPair.slug !== slug) {
+        redirect(`/en/blog/${enPair.slug}`);
+      }
+      // Not yet translated into English: on-demand kicks in
       sourceIdArticle = idArticle;
       article = idArticle;
       needsOnDemandTranslation = true;
@@ -384,6 +427,8 @@ export default async function ArticlePage({ params }: Props) {
               src={pageImgMeta.src}
               alt={pageImgMeta.alt}
               title={pageImgMeta.title}
+              width={1200}
+              height={675}
               loading="eager"
               decoding="async"
               className="aspect-[16/9] w-full object-cover transition-opacity duration-300"
@@ -426,7 +471,7 @@ export default async function ArticlePage({ params }: Props) {
               initialExcerpt={sourceIdArticle.excerpt || undefined}
             />
           ) : (
-            <Markdown content={article.content_md ?? ""} />
+            <Markdown content={article.content_md ?? ""} locale={locale} />
           )}
 
           {showBottomAuthor && author ? (

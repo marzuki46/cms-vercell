@@ -8,7 +8,13 @@ import { headingId } from "@/lib/article-seo";
  * Strictly guarantees that exactly ONE <h1> exists per page by remapping any
  * markdown <h1> (# Heading) into an <h2> (or dropping leading duplicate title).
  */
-export default function Markdown({ content }: { content: string }) {
+export default function Markdown({
+  content,
+  locale,
+}: {
+  content: string;
+  locale?: string;
+}) {
   // Strip duplicate leading markdown H1 if present, because page <header> already renders the canonical <h1>
   const cleanContent = (content || "").replace(/^#\s+[^\n]+(?:\r?\n|$)/, "").trim();
 
@@ -24,15 +30,20 @@ export default function Markdown({ content }: { content: string }) {
           h3: ({ children }) => <h3 id={headingId(String(children))}>{children}</h3>,
           h4: ({ children }) => <h4 id={headingId(String(children))}>{children}</h4>,
           a: ({ href, children }) => {
-            const external = href?.startsWith("http");
+            let targetHref = href || "";
+            // Rewrite legacy /blog/ links directly to localized path to avoid 308 redirect hop
+            if (targetHref.startsWith("/blog/")) {
+              targetHref = `/${locale || "id"}${targetHref}`;
+            }
+            const external = targetHref.startsWith("http");
             if (external) {
               return (
-                <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+                <a href={targetHref} target="_blank" rel="noopener noreferrer nofollow">
                   {children}
                 </a>
               );
             }
-            return <a href={href}>{children}</a>;
+            return <a href={targetHref}>{children}</a>;
           },
           img: ({ src, alt, title }) => {
             const rawSrc = typeof src === "string" ? src : "";
@@ -49,6 +60,8 @@ export default function Markdown({ content }: { content: string }) {
                 src={optimizedSrc}
                 alt={cleanAlt}
                 title={cleanTitle}
+                width={1200}
+                height={675}
                 loading="lazy"
                 decoding="async"
                 className="rounded-xl border border-line my-4 max-w-full h-auto"

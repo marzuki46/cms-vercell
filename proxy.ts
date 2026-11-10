@@ -20,6 +20,26 @@ const ADMIN_PREFIXES = ["/admin", "/api/admin", "/api/settings", "/api/install"]
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 0. Fast Edge GeoIP & cookie redirect for root '/' (< 50ms TTFB)
+  if (pathname === "/") {
+    const cookieLocale = request.cookies.get("NEXT_LOCALE")?.value;
+    if (cookieLocale === "id" || cookieLocale === "en") {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${cookieLocale}`;
+      return NextResponse.redirect(url, 307);
+    }
+
+    const country =
+      request.headers.get("x-vercel-ip-country") ||
+      (request as unknown as { geo?: { country?: string } }).geo?.country ||
+      "ID";
+
+    const targetLocale = country.toUpperCase() === "ID" ? "id" : "en";
+    const url = request.nextUrl.clone();
+    url.pathname = `/${targetLocale}`;
+    return NextResponse.redirect(url, 307);
+  }
+
   // Google Search Console HTML File verification handler
   // Matches e.g. /google1234567890abcdef.html
   const googleMatch = pathname.match(/^\/(google[a-zA-Z0-9_-]+\.html)$/i);
@@ -204,6 +224,7 @@ function legacyRedirect(pathname: string): string | null {
 
 export const config = {
   matcher: [
+    "/",
     "/admin/:path*",
     "/api/admin/:path*",
     "/api/settings/:path*",

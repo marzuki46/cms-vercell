@@ -363,7 +363,7 @@ export async function runGenerate(topicId?: string): Promise<GenerateResult> {
       .limit(3);
     if (related && related.length) {
       const links = related
-        .map((r) => `- [${r.title}](/blog/${r.slug})`)
+        .map((r) => `- [${r.title}](/id/blog/${r.slug})`)
         .join("\n");
       contentMd += `\n\n## Baca juga\n\n${links}`;
     }

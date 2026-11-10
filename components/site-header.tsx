@@ -104,6 +104,12 @@ export default function SiteHeader({
     return `/${targetLocale}/${segments.join("/")}`;
   }
 
+  function setLocaleCookie(targetLocale: Locale) {
+    try {
+      document.cookie = `NEXT_LOCALE=${targetLocale}; path=/; max-age=31536000; SameSite=Lax`;
+    } catch {}
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/95 backdrop-blur-md transition-colors">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3.5 sm:py-4">
@@ -164,6 +170,7 @@ export default function SiteHeader({
                 key={l}
                 href={getSwitchUrl(l)}
                 hrefLang={htmlLang(l)}
+                onClick={() => setLocaleCookie(l)}
                 className={`rounded-full px-2.5 py-1 uppercase transition ${
                   l === locale
                     ? "bg-accent text-accent-fg shadow-sm"
@@ -197,6 +204,7 @@ export default function SiteHeader({
               <Link
                 key={l}
                 href={getSwitchUrl(l)}
+                onClick={() => setLocaleCookie(l)}
                 className={`rounded-full px-2 py-0.5 uppercase transition ${
                   l === locale
                     ? "bg-accent text-accent-fg"
