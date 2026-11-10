@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminApi, jsonError } from "@/lib/api";
 import { listModels, chat } from "@/lib/ai/client";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -52,12 +53,22 @@ export async function POST(request: NextRequest) {
   }
 
   const url = (body.url ?? "").trim();
-  const key = (body.key ?? "").trim();
+  let key = (body.key ?? "").trim();
   const model = (body.model ?? "").trim();
   if (!url) return jsonError("Endpoint wajib diisi.");
 
   if (!isSafeUrl(url)) {
     return jsonError("Endpoint URL tidak diizinkan demi keamanan (SSRF protection).", 400);
+  }
+
+  // If key is masked/empty from client, load the saved key from database
+  if (!key) {
+    try {
+      const s = await getSettings();
+      if (s.ninerouter_key) {
+        key = s.ninerouter_key.trim();
+      }
+    } catch {}
   }
 
   try {
