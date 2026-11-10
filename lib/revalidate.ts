@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/en/contact",
   "/sitemap.xml",
   "/rss.xml",
+  "/llms.txt",
   "/api/og",
 ];
 
